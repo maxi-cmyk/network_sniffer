@@ -5,11 +5,15 @@
 # Ensures the same instance is used across all routes.
 #
 # Usage in routes:
-#   from app.services.registry import sniffer_service
+#   from app.services.registry import sniffer_service, alert_service
 
 from app.services.sniffer import SnifferService
+from app.services.alerts import AlertService
 
-# Single instance - used by all routes
-sniffer_service = SnifferService()
+# Create AlertService first
+alert_service = AlertService()
 
-__all__ = ['sniffer_service']
+# Create SnifferService with AlertService
+sniffer_service = SnifferService(alert_service=alert_service)
+
+__all__ = ['sniffer_service', 'alert_service']

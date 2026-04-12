@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class SnifferService:
     """Manages packet capture and broadcasting to clients."""
     
-    def __init__(self):
+    def __init__(self, alert_service=None):
         self.clients: set = set()
         self.sniffing = False
         self.ip_filter: str = ""
@@ -27,7 +27,10 @@ class SnifferService:
         self._packet_buffer: list[Packet] = []
         
         # Packet handler (processes raw packets)
-        self._packet_handler = PacketHandler()
+        self._packet_handler = PacketHandler(alert_service=alert_service)
+        
+        # Alert service
+        self._alert_service = alert_service
         
         # Background task for flushing the buffer
         self._flush_task = None
@@ -36,6 +39,14 @@ class SnifferService:
     def raw_packets(self) -> list:
         """Get raw packets from handler for PCAP export."""
         return self._packet_handler.raw_packets
+    
+    def get_top_talkers(self, max_count: int = 10) -> list:
+        """Get top talkers by traffic (bytes)."""
+        return self._packet_handler.get_ip_stats(max_count)
+    
+    def get_arp_table(self) -> list:
+        """Get ARP table."""
+        return self._packet_handler.get_arp_table()
     
     def set_loop(self, loop: asyncio.AbstractEventLoop):
         """Store reference to the asyncio event loop."""

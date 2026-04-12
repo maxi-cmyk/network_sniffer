@@ -43,6 +43,9 @@ export interface PacketData {
   http_path?: string;
   http_user_agent?: string;
   tls_sni?: string;
+  // TCP connection tracking
+  tcp_state?: string;
+  tcp_flags?: string;
 }
 
 /**
@@ -56,13 +59,52 @@ interface UseTrafficStreamOptions {
 }
 
 /**
+ * Alert data
+ */
+export interface AlertData {
+  id: string;
+  severity: 'critical' | 'warning' | 'info';
+  source_ip: string;
+  description: string;
+  timestamp: string;
+  count: number;
+}
+
+/**
+ * IP traffic stat
+ */
+export interface IPStats {
+  ip: string;
+  sent: number;
+  recv: number;
+  total: number;
+}
+
+/**
+ * ARP entry
+ */
+export interface ARPEntry {
+  ip: string;
+  mac: string;
+}
+
+/**
  * Statistics computed from packets
  */
 interface PacketStats {
-  totalPackets: number;       // How many packets we've seen
-  totalBytes: number;        // Total data transferred (in bytes)
-  uniqueIPs: number;         // How many unique IP addresses
-  protocols: Record<string, number>;  // Count of each protocol type
+  totalPackets: number;
+  totalBytes: number;
+  uniqueIPs: number;
+  protocols: Record<string, number>;
+  connections: {
+    ESTABLISHED: number;
+    CONNECTING: number;
+    CLOSED: number;
+  };
+  alerts: AlertData[];
+  alertCount: number;
+  topTalkers: IPStats[];
+  arpTable: ARPEntry[];
 }
 
 const DEFAULT_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws/traffic";
@@ -87,6 +129,15 @@ export function useTrafficStream({
     totalBytes: 0,
     uniqueIPs: 0,
     protocols: {},
+    connections: {
+      ESTABLISHED: 0,
+      CONNECTING: 0,
+      CLOSED: 0,
+    },
+    alerts: [],
+    alertCount: 0,
+    topTalkers: [],
+    arpTable: [],
   });
 
   const [shouldConnect, setShouldConnect] = useState<boolean>(() => {
@@ -160,6 +211,15 @@ export function useTrafficStream({
       totalBytes: 0,
       uniqueIPs: 0,
       protocols: {},
+      connections: {
+        ESTABLISHED: 0,
+        CONNECTING: 0,
+        CLOSED: 0,
+      },
+      alerts: [],
+      alertCount: 0,
+      topTalkers: [],
+      arpTable: [],
     });
     packetBufferRef.current = [];
     seenIPsRef.current = new Set();
@@ -187,6 +247,7 @@ export function useTrafficStream({
     setConnectionError(null);
     setIsConnecting(true);
 
+    console.info("Connecting to WebSocket:", url);
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
@@ -215,12 +276,29 @@ export function useTrafficStream({
           const newProtocols = { ...prev.protocols };
           const newSeenIPs = new Set(seenIPsRef.current);
           let newBytes = prev.totalBytes;
-
+          
+          // Track TCP connections by state
+          const newConnections = { ...prev.connections };
+          
           newPackets.forEach((p) => {
             newProtocols[p.proto] = (newProtocols[p.proto] || 0) + 1;
             newSeenIPs.add(p.src);
             newSeenIPs.add(p.dst);
             newBytes += p.length;
+            
+            // Update TCP connection counts
+            if (p.proto === "TCP" && p.tcp_state) {
+              const state = p.tcp_state;
+              if (state === "ESTABLISHED" || state === "SYN_RCVD" || state === "SYN_SENT") {
+                newConnections.CONNECTING = (newConnections.CONNECTING || 0) + 1;
+              } else if (state === "CLOSED" || state === "CLOSE_WAIT" || state === "RESET" || state === "FIN_WAIT") {
+                newConnections.CLOSED = (newConnections.CLOSED || 0) + 1;
+              }
+              if (state === "ESTABLISHED" && !state.includes("CLOSED")) {
+                newConnections.ESTABLISHED = (newConnections.ESTABLISHED || 0) + 1;
+                newConnections.CONNECTING = Math.max(0, (newConnections.CONNECTING || 0) - 1);
+              }
+            }
             onPacketRef.current?.(p);
           });
 
@@ -231,6 +309,11 @@ export function useTrafficStream({
             totalBytes: newBytes,
             uniqueIPs: newSeenIPs.size,
             protocols: newProtocols,
+            connections: newConnections,
+            alerts: prev.alerts,
+            alertCount: prev.alertCount,
+            topTalkers: prev.topTalkers,
+            arpTable: prev.arpTable,
           };
         });
       }, BATCH_INTERVAL_MS);
@@ -271,6 +354,7 @@ export function useTrafficStream({
   }, [url, disconnect]);
 
   const startSniffer = useCallback(() => {
+    console.info("startSniffer called, shouldConnect:", true);
     setShouldConnect(true);
     if (typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEY, "true");
@@ -279,6 +363,7 @@ export function useTrafficStream({
   }, [connect]);
 
   useEffect(() => {
+    console.info("Effect running, shouldConnect:", shouldConnect, "isConnected:", isConnected);
     if (shouldConnect) {
       connect();
     }
@@ -286,6 +371,38 @@ export function useTrafficStream({
       disconnect();
     };
   }, [connect, shouldConnect]);
+
+  // Poll alerts from API
+  useEffect(() => {
+    if (!isConnected) return;
+    
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    let polling = true;
+    
+    const pollAlerts = async () => {
+      if (!polling) return;
+      try {
+        const res = await fetch(`${API_URL}/alerts`);
+        const data = await res.json();
+        if (data.alerts) {
+          setStats(prev => ({
+            ...prev,
+            alerts: data.alerts,
+            alertCount: data.count,
+          }));
+        }
+      } catch (e) {
+        console.error("Failed to fetch alerts:", e);
+      }
+    };
+    
+    pollAlerts();
+    const interval = setInterval(pollAlerts, 3000);
+    return () => {
+      polling = false;
+      clearInterval(interval);
+    };
+  }, [isConnected]);
 
   return {
     isConnected,
@@ -326,11 +443,26 @@ export function useTrafficStream({
         const newSeenIPs = new Set(seenIPsRef.current);
         let newBytes = prev.totalBytes;
         
+        // Track TCP connections by state
+        const newConnections = { ...prev.connections };
+        
         newPackets.forEach((p) => {
           newProtocols[p.proto] = (newProtocols[p.proto] || 0) + 1;
           newSeenIPs.add(p.src);
           newSeenIPs.add(p.dst);
           newBytes += p.length;
+          
+          // Update TCP connection counts
+          if (p.proto === "TCP" && p.tcp_state) {
+            const state = p.tcp_state;
+            if (state === "ESTABLISHED") {
+              newConnections.ESTABLISHED = (newConnections.ESTABLISHED || 0) + 1;
+            } else if (state === "SYN_SENT" || state === "SYN_RCVD") {
+              newConnections.CONNECTING = (newConnections.CONNECTING || 0) + 1;
+            } else if (state === "CLOSED" || state === "CLOSE_WAIT" || state === "RESET" || state === "FIN_WAIT") {
+              newConnections.CLOSED = (newConnections.CLOSED || 0) + 1;
+            }
+          }
         });
         
         seenIPsRef.current = newSeenIPs;
@@ -340,6 +472,11 @@ export function useTrafficStream({
           totalBytes: newBytes,
           uniqueIPs: newSeenIPs.size,
           protocols: newProtocols,
+          connections: newConnections,
+          alerts: prev.alerts,
+          alertCount: prev.alertCount,
+          topTalkers: prev.topTalkers,
+          arpTable: prev.arpTable,
         };
       });
     },
