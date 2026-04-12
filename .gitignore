@@ -1,0 +1,88 @@
+# ── Python ───
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Virtual environments
+backend/venv/
+.venv/
+env/
+.env/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy / pyright
+.mypy_cache/
+.pyright/
+
+# ── Node / Next.js ───
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.npm
+
+# Next.js build output
+frontend/.next/
+
+# TypeScript incremental build info
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+
+# Local env files (Next.js)
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# ── Editor / OS ───
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# ── Misc ──
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Graphify (knowledge graph)
+.graphify_*.json
+.graphify_*.txt
+graphify-out/
+
+# Build outputs
+*.build/
+dist/
+
+# OS specific
+*.log
+
+# Learning materials (personal)
+LEARNING_ROADMAP.md
+docs/networking-basics.md
+docs/design.md
+notes/
+skills/
+
+# Capture files
+*.pcap
+capture_*.pcap

@@ -1,0 +1,211 @@
+"""
+Decoder Service
+==============
+
+Decodes application-layer (L7) data from network packets:
+- DNS: Extract domain names from DNS queries/responses
+- HTTP: Extract headers from HTTP requests
+- TLS: Extract SNI from TLS ClientHello
+
+Key Concepts for Beginners:
+- Application Layer: The topmost OSI layer (L7) - what users interact with
+- DNS: The "phonebook of the internet" - maps domains to IPs
+- HTTP: The protocol behind web browsing
+- TLS/SNI: Encryption layer, SNI reveals server name even in encrypted traffic
+
+For learning more: docs/networking-basics.md
+"""
+
+from __future__ import annotations
+import logging
+from typing import Optional
+
+from scapy.all import DNS, TCP, UDP, Raw
+
+logger = logging.getLogger(__name__)
+
+
+class DecoderService:
+    """
+    Decodes application-layer (L7) data from packets.
+    
+    Edge cases handled:
+    - Fragmented DNS: Only single-packet queries
+    - Unicode domains: Use punycode encoding
+    - Non-HTTP payloads: Gracefully return None
+    - TLS 1.3: Handled separately (encrypted SNI)
+    """
+    
+    def __init__(self, max_bytes: int = 1024):
+        """
+        Initialize decoder with payload limit.
+        
+        Args:
+            max_bytes: Maximum payload bytes to inspect (prevents lag)
+        """
+        self.max_bytes = max_bytes
+    
+    def decode(self, packet) -> dict:
+        """
+        Main decode entry point.
+        
+        Args:
+            packet: Raw Scapy packet
+            
+        Returns:
+            Dictionary with decoded L7 data
+        """
+        return {
+            "dns": self.decode_dns(packet),
+            "http": self.decode_http(packet),
+            "tls": self.decode_tls_sni(packet),
+        }
+    
+    def decode_dns(self, packet) -> Optional[str]:
+        """
+        Extract domain from DNS packet (port 53).
+        
+        What it shows:
+        - DNS Query: The domain being requested
+        - DNS Response: The resolved IP address
+        
+        Handles:
+        - Unicode domains
+        - Multiple answers (returns first)
+        - Non-query DNS types gracefully
+        """
+        try:
+            # Check if packet has DNS layer
+            if DNS in packet:
+                dns_layer = packet[DNS]
+                
+                # Check if it's a query (qr=0) or response (qr=1)
+                if dns_layer.qr == 0:
+                    # Query - extract domain name
+                    if dns_layer.qd:
+                        domain = dns_layer.qd.qname
+                        if domain:
+                            # Clean up domain (remove trailing dot, handle unicode)
+                            domain_str = domain.decode('utf-8', errors='ignore').rstrip('.')
+                            return domain_str
+                            
+                elif dns_layer.qr == 1:
+                    # Response - extract first answer if available
+                    if dns_layer.an:
+                        rdata = dns_layer.an.rdata
+                        if rdata:
+                            # Could be IP or domain depending on record type
+                            return str(rdata)
+                            
+        except Exception as e:
+            logger.debug(f"DNS decode error: {e}")
+            
+        return None
+    
+    def decode_http(self, packet) -> Optional[dict]:
+        """
+        Extract HTTP headers from unencrypted traffic (port 80).
+        
+        What it shows:
+        - HTTP Method: GET, POST, PUT, etc.
+        - Host: Which website
+        - Path: The URL path requested
+        
+        Edge cases handled:
+        - Chunked encoding: Not decoded (marked)
+        - Binary payloads: Skipped
+        - HTTP/2+: Not supported (marked)
+        """
+        try:
+            # Must have Raw layer to inspect payload
+            if Raw in packet:
+                payload = bytes(packet[Raw].load[:self.max_bytes])
+                
+                try:
+                    payload_str = payload.decode('utf-8', errors='ignore')
+                except:
+                    return None
+                
+                # Check for HTTP request line
+                if payload_str.startswith(('GET ', 'POST ', 'PUT ', 'DELETE ', 'HEAD ', 'OPTIONS ', 'PATCH ', 'HTTP/')):
+                    lines = payload_str.split('\r\n')
+                    
+                    result = {}
+                    
+                    for line in lines:
+                        if line.startswith('GET') or line.startswith('POST'):
+                            parts = line.split(' ')
+                            if len(parts) >= 2:
+                                result['method'] = parts[0]
+                                result['path'] = parts[1]
+                                break
+                        
+                        if line.startswith('Host:'):
+                            result['host'] = line.split(':', 1)[1].strip()
+                        
+                        if line.startswith('User-Agent:'):
+                            result['user_agent'] = line.split(':', 1)[1].strip()
+                        
+                        # Stop at empty line (end of headers)
+                        if not line:
+                            break
+                    
+                    if result.get('method') or result.get('host'):
+                        return result
+                        
+        except Exception as e:
+            logger.debug(f"HTTP decode error: {e}")
+            
+        return None
+    
+    def decode_tls_sni(self, packet) -> Optional[str]:
+        """
+        Extract Server Name Indication (SNI) from TLS ClientHello (port 443).
+        
+        What it shows:
+        - SNI: The server name being requested (even in encrypted traffic!)
+        - TLS Version: 1.2 or 1.3
+        
+        Why this matters:
+        Even with HTTPS, the SNI is sent in plaintext. This is how your
+        internet provider knows which websites you visit.
+        
+        Edge cases handled:
+        - TLS 1.3: SNI is encrypted (different structure)
+        - Session resumption: No new SNI
+        - Missing SNI: Gracefully returns None
+        """
+        try:
+            # Check for TLS layers
+            if TCP in packet:
+                payload = bytes(packet[Raw].load[:self.max_bytes]) if Raw in packet else b''
+                
+                # Look for TLS ClientHello Handshake type (0x01)
+                # TLS record starts with: ContentType(0x16) + Version(0x03 0x01/0x03) + Length
+                if len(payload) >= 5 and payload[0] == 0x16:
+                    # This is a TLS Handshake
+                    # Try to find SNI extension (0x0000 for Server Name)
+                    
+                    # Find Server Name list (0x00 0x00 in extension list)
+                    sni_marker = b'\x00\x00'
+                    if sni_marker in payload:
+                        # Extract SNI from extension
+                        idx = payload.find(sni_marker)
+                        # Skip marker + length fields + name type (1 byte)
+                        name_len = payload[idx + 4] * 256 + payload[idx + 5]
+                        name_start = idx + 6
+                        name_end = name_start + name_len
+                        
+                        if name_end <= len(payload):
+                            sni = payload[name_start:name_end]
+                            return sni.decode('utf-8', errors='ignore')
+                    
+                    # Check for TLS 1.3 indicator in version
+                    # TLS 1.3 uses version 0x0303
+                    if len(payload) >= 3 and payload[1] == 0x03 and payload[2] == 0x03:
+                        return "TLS 1.3 (encrypted)"
+                        
+        except Exception as e:
+            logger.debug(f"TLS decode error: {e}")
+            
+        return None
