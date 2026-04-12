@@ -22,7 +22,6 @@ async def websocket_traffic(websocket: WebSocket):
     """
     WebSocket endpoint for real-time packet streaming.
     """
-    print(f"[WS] sniffer_service ID: {id(sniffer_service)}")
     await websocket.accept()
     
     # Get the event loop
@@ -39,7 +38,7 @@ async def websocket_traffic(websocket: WebSocket):
             # Start Scapy sniff in separate thread
             sniffer_thread = threading.Thread(target=_run_sniff, daemon=True)
             sniffer_thread.start()
-            print("Sniffer thread started")
+            logger.info("Sniffer thread started")
     
     # Handle client messages (filter updates)
     try:
@@ -56,7 +55,7 @@ async def websocket_traffic(websocket: WebSocket):
     except WebSocketDisconnect:
         sniffer_service.remove_client(websocket)
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        logger.error(f"WebSocket error: {e}")
         sniffer_service.remove_client(websocket)
 
 

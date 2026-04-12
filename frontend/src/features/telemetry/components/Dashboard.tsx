@@ -80,6 +80,7 @@ function PacketList({ packets }: { packets: PacketData[] }) {
             <th className="p-3 font-medium">Destination</th>
             <th className="p-3 font-medium">Port</th>
             <th className="p-3 font-medium">Protocol</th>
+            <th className="p-3 font-medium">Decoded</th>
             <th className="p-3 font-medium text-right">Size</th>
           </tr>
         </thead>
@@ -108,6 +109,16 @@ function PacketList({ packets }: { packets: PacketData[] }) {
                 >
                   {p.proto}
                 </span>
+              </td>
+              <td className="p-3 font-mono text-xs text-primary max-w-[150px] truncate" title={p.dns_domain || p.http_host || p.tls_sni || (p.http_method ? `${p.http_method} ${p.http_path}` : "") || ""}>
+                {p.dns_domain || p.http_host || p.tls_sni || p.http_method ? (
+                  <span className="text-primary">
+                    {p.dns_domain && `DNS: ${p.dns_domain.slice(0, 20)}${p.dns_domain.length > 20 ? '...' : ''}`}
+                    {p.http_host && `Host: ${p.http_host.slice(0, 20)}${p.http_host.length > 20 ? '...' : ''}`}
+                    {p.http_method && `${p.http_method} ${p.http_path?.slice(0, 15)}${(p.http_path?.length ?? 0) > 15 ? '...' : ''}`}
+                    {p.tls_sni && `SNI: ${p.tls_sni.slice(0, 20)}${p.tls_sni.length > 20 ? '...' : ''}`}
+                  </span>
+                ) : <span className="text-muted-foreground">—</span>}
               </td>
               <td className="p-3 font-mono text-xs text-muted-foreground text-right">
                 {p.length} B
@@ -466,7 +477,6 @@ export default function Dashboard() {
           <div>
             <h1 className="text-xl font-bold text-white tracking-widest uppercase">Network Sniffer</h1>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-technical text-[9px] text-muted-foreground px-1 py-0.5 bg-white/5 rounded-sm">v1.2.0-stable</span>
               <span className="text-technical text-[9px] text-primary/60">Intercept Active</span>
             </div>
           </div>

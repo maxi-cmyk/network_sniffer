@@ -20,9 +20,10 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from scapy.all import DNS, TCP, UDP, Raw
+from scapy.all import DNS, TCP, UDP, Raw, IP
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)  # Set to INFO by default, not DEBUG
 
 
 class DecoderService:
@@ -48,18 +49,25 @@ class DecoderService:
     def decode(self, packet) -> dict:
         """
         Main decode entry point.
-        
-        Args:
-            packet: Raw Scapy packet
-            
-        Returns:
-            Dictionary with decoded L7 data
         """
-        return {
-            "dns": self.decode_dns(packet),
-            "http": self.decode_http(packet),
-            "tls": self.decode_tls_sni(packet),
-        }
+        result = {}
+        
+        # Always try DNS first (most reliable for DNS traffic)
+        dns_result = self.decode_dns(packet)
+        if dns_result:
+            result['dns'] = dns_result
+            
+        # Try HTTP
+        http_result = self.decode_http(packet)
+        if http_result:
+            result['http'] = http_result
+            
+        # Try TLS
+        tls_result = self.decode_tls_sni(packet)
+        if tls_result:
+            result['tls'] = tls_result
+        
+        return result
     
     def decode_dns(self, packet) -> Optional[str]:
         """
@@ -104,54 +112,52 @@ class DecoderService:
     
     def decode_http(self, packet) -> Optional[dict]:
         """
-        Extract HTTP headers from unencrypted traffic (port 80).
-        
-        What it shows:
-        - HTTP Method: GET, POST, PUT, etc.
-        - Host: Which website
-        - Path: The URL path requested
-        
-        Edge cases handled:
-        - Chunked encoding: Not decoded (marked)
-        - Binary payloads: Skipped
-        - HTTP/2+: Not supported (marked)
+        Extract HTTP headers and similar protocols.
+        Handles: HTTP, UPnP/SSDP, etc.
         """
         try:
-            # Must have Raw layer to inspect payload
-            if Raw in packet:
-                payload = bytes(packet[Raw].load[:self.max_bytes])
+            # Must have Raw layer
+            if Raw not in packet:
+                return None
+            
+            payload = bytes(packet[Raw].load[:self.max_bytes])
+            
+            try:
+                payload_str = payload.decode('utf-8', errors='ignore')
+            except:
+                return None
+            
+            # HTTP methods (including NOTIFY for UPnP/SSDP)
+            http_methods = ('GET ', 'POST ', 'PUT ', 'DELETE ', 'HEAD ', 'OPTIONS ', 'PATCH ', 'NOTIFY ')
+            
+            if payload_str.startswith(http_methods):
+                lines = payload_str.split('\r\n')
+                result = {}
                 
-                try:
-                    payload_str = payload.decode('utf-8', errors='ignore')
-                except:
-                    return None
+                # Parse request line
+                first_line = lines[0]
+                if first_line.startswith(http_methods):
+                    parts = first_line.split(' ')
+                    if len(parts) >= 2:
+                        result['method'] = parts[0]
+                        result['path'] = parts[1]
                 
-                # Check for HTTP request line
-                if payload_str.startswith(('GET ', 'POST ', 'PUT ', 'DELETE ', 'HEAD ', 'OPTIONS ', 'PATCH ', 'HTTP/')):
-                    lines = payload_str.split('\r\n')
+                # Parse headers
+                for line in lines[1:]:
+                    if line.startswith('Host:'):
+                        result['host'] = line.split(':', 1)[1].strip()
+                    elif line.startswith('User-Agent:'):
+                        result['user_agent'] = line.split(':', 1)[1].strip()
+                    elif line.startswith('Location:'):
+                        result['host'] = line.split(':', 1)[1].strip()
+                    elif line.startswith('NT:'):
+                        result['user_agent'] = line.split(':', 1)[1].strip()
                     
-                    result = {}
-                    
-                    for line in lines:
-                        if line.startswith('GET') or line.startswith('POST'):
-                            parts = line.split(' ')
-                            if len(parts) >= 2:
-                                result['method'] = parts[0]
-                                result['path'] = parts[1]
-                                break
-                        
-                        if line.startswith('Host:'):
-                            result['host'] = line.split(':', 1)[1].strip()
-                        
-                        if line.startswith('User-Agent:'):
-                            result['user_agent'] = line.split(':', 1)[1].strip()
-                        
-                        # Stop at empty line (end of headers)
-                        if not line:
-                            break
-                    
-                    if result.get('method') or result.get('host'):
-                        return result
+                    if not line:
+                        break
+                
+                if result.get('method') or result.get('host'):
+                    return result
                         
         except Exception as e:
             logger.debug(f"HTTP decode error: {e}")

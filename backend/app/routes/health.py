@@ -17,7 +17,6 @@ async def health_check():
     """
     Health check endpoint.
     """
-    print(f"[HEALTH] Clients: {len(sniffer_service.clients)}")
     return {
         "status": "healthy",
         "sniffing": sniffer_service.sniffing,
