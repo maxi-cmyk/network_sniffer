@@ -30,6 +30,8 @@ class Packet:
     http_path: str = None
     http_user_agent: str = None
     tls_sni: str = None
+    tls_version: str = None  # TLS 1.0, 1.1, 1.2, 1.3
+    tls_cipher: str = None   # Cipher suite code
     
     # TCP connection tracking
     tcp_state: str = None  # ESTABLISHED, SYN_SENT, SYN_RCVD, FIN_WAIT, CLOSED, etc.
@@ -54,6 +56,8 @@ class Packet:
             "http_path": self.http_path,
             "http_user_agent": self.http_user_agent,
             "tls_sni": self.tls_sni,
+            "tls_version": self.tls_version,
+            "tls_cipher": self.tls_cipher,
             "tcp_state": self.tcp_state,
             "tcp_flags": self.tcp_flags,
         }

@@ -62,12 +62,77 @@ class DecoderService:
         if http_result:
             result['http'] = http_result
             
-        # Try TLS
-        tls_result = self.decode_tls_sni(packet)
+        # Try TLS - get version, cipher, SNI
+        tls_result = self.decode_tls_info(packet)
         if tls_result:
             result['tls'] = tls_result
         
         return result
+    
+    def decode_tls_info(self, packet) -> Optional[dict]:
+        """
+        Extract TLS version, cipher suite, and SNI from TLS ClientHello.
+        
+        Returns dict with:
+        - version: TLS 1.2, TLS 1.3, or unknown
+        - cipher: First cipher suite offered (if detectable)
+        - sni: Server Name Indication (if present)
+        """
+        try:
+            if TCP not in packet:
+                return None
+                
+            payload = bytes(packet[Raw].load[:self.max_bytes]) if Raw in packet else b''
+            
+            if len(payload) < 5 or payload[0] != 0x16:
+                return None
+            
+            # TLS version: bytes[1:3] = 0x03 0x01-0x04
+            version = "Unknown"
+            if len(payload) >= 3:
+                if payload[1] == 0x03:
+                    if payload[2] == 0x01:
+                        version = "TLS 1.0"
+                    elif payload[2] == 0x02:
+                        version = "TLS 1.1"
+                    elif payload[2] == 0x03:
+                        version = "TLS 1.2"
+                    elif payload[2] == 0x04:
+                        version = "TLS 1.3"
+            
+            cipher = None
+            sni = None
+            
+            # TLS 1.3 and 1.2 have different ClientHello structures
+            # Look for SNI extension (0x00 0x00)
+            sni_marker = b'\x00\x00'
+            if sni_marker in payload:
+                idx = payload.find(sni_marker)
+                if len(payload) > idx + 6:
+                    name_len = payload[idx + 4] * 256 + payload[idx + 5]
+                    name_start = idx + 6
+                    name_end = name_start + name_len
+                    if name_end <= len(payload):
+                        sni_bytes = payload[name_start:name_end]
+                        sni = sni_bytes.decode('utf-8', errors='ignore')
+            
+            # For TLS 1.2, can extract cipher suite (bytes 43-45 typically)
+            if version == "TLS 1.2" and len(payload) >= 47:
+                # Cipher suites start at byte 43 (after version + timestamp + random)
+                cipher_bytes = payload[43:45]
+                cipher_code = cipher_bytes[0] * 256 + cipher_bytes[1]
+                cipher = f"0x{cipher_code:04x}"
+            
+            return {
+                "version": version,
+                "cipher": cipher,
+                "sni": sni
+            }
+                        
+        except Exception as e:
+            logger.debug(f"TLS decode error: {e}")
+            
+        return None
     
     def decode_dns(self, packet) -> Optional[str]:
         """

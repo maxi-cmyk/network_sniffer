@@ -205,6 +205,32 @@ async def simulate_real_attacks(request: dict):
     }
 
 
+@router.get("/alerts/settings")
+async def get_alert_settings():
+    """
+    Get current alert threshold settings.
+    """
+    return AlertConfig.to_dict()
+
+
+@router.post("/alerts/settings")
+async def update_alert_settings(request: dict):
+    """
+    Update alert threshold settings.
+    
+    Body (all optional):
+        port_scan_threshold: int
+        port_scan_window: int
+        syn_flood_threshold: int
+        high_volume_threshold: int
+        packet_rate_threshold: int
+        alert_ttl: int
+        alert_cooldown: int
+    """
+    AlertConfig.update_thresholds(request)
+    return {"status": "updated", "settings": AlertConfig.to_dict()}
+
+
 @router.get("/alerts/full")
 async def get_alerts_full():
     """

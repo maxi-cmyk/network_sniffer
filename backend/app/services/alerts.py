@@ -32,8 +32,8 @@ class AlertConfig:
     # Test mode - set via environment variable
     TEST_MODE = os.environ.get('ALERT_TEST_MODE', 'false').lower() == 'true'
     
-    # Port Scan thresholds
-    PORT_SCAN_THRESHOLD = 15 if TEST_MODE else 25  # ports
+    # Port Scan thresholds (can be updated via API)
+    PORT_SCAN_THRESHOLD = 15 if TEST_MODE else 25
     PORT_SCAN_WINDOW = 5  # seconds
     
     # SYN Flood thresholds
@@ -42,10 +42,10 @@ class AlertConfig:
     # High Volume thresholds
     HIGH_VOLUME_THRESHOLD = 102400 if TEST_MODE else 1024 * 1024  # bytes
     
-    # Packet Rate thresholds (new)
+    # Packet Rate thresholds
     PACKET_RATE_THRESHOLD = 50 if TEST_MODE else 100  # packets/second
     
-    # Connection ratio threshold (new)
+    # Connection ratio threshold
     CONNECTION_RATIO_THRESHOLD = 0.5  # half_open / established
     
     # Alert limits
@@ -55,9 +55,44 @@ class AlertConfig:
     # Cooldown period to prevent alert spam
     ALERT_COOLDOWN = 60  # seconds
     
-    # IP type tracking (new)
+    # IP type tracking
     TRACK_PRIVATE_IPS = True
     TRACK_PUBLIC_IPS = True
+    
+    @classmethod
+    def update_thresholds(cls, settings: dict):
+        """Update thresholds from settings dict."""
+        if 'port_scan_threshold' in settings:
+            cls.PORT_SCAN_THRESHOLD = int(settings['port_scan_threshold'])
+        if 'port_scan_window' in settings:
+            cls.PORT_SCAN_WINDOW = int(settings['port_scan_window'])
+        if 'syn_flood_threshold' in settings:
+            cls.SYN_FLOOD_THRESHOLD = int(settings['syn_flood_threshold'])
+        if 'high_volume_threshold' in settings:
+            cls.HIGH_VOLUME_THRESHOLD = int(settings['high_volume_threshold'])
+        if 'packet_rate_threshold' in settings:
+            cls.PACKET_RATE_THRESHOLD = int(settings['packet_rate_threshold'])
+        if 'alert_ttl' in settings:
+            cls.ALERT_TTL = int(settings['alert_ttl'])
+        if 'alert_cooldown' in settings:
+            cls.ALERT_COOLDOWN = int(settings['alert_cooldown'])
+        logger.info(f"Thresholds updated: {settings}")
+    
+    @classmethod
+    def to_dict(cls) -> dict:
+        """Export current thresholds."""
+        return {
+            "port_scan_threshold": cls.PORT_SCAN_THRESHOLD,
+            "port_scan_window": cls.PORT_SCAN_WINDOW,
+            "syn_flood_threshold": cls.SYN_FLOOD_THRESHOLD,
+            "high_volume_threshold": cls.HIGH_VOLUME_THRESHOLD,
+            "packet_rate_threshold": cls.PACKET_RATE_THRESHOLD,
+            "connection_ratio_threshold": cls.CONNECTION_RATIO_THRESHOLD,
+            "alert_ttl": cls.ALERT_TTL,
+            "alert_cooldown": cls.ALERT_COOLDOWN,
+            "max_alerts": cls.MAX_ALERTS,
+            "test_mode": cls.TEST_MODE,
+        }
 
 
 # =============================================================================
@@ -171,17 +206,24 @@ class AlertService:
         if ip not in self._port_scan_tracker:
             self._port_scan_tracker[ip] = []
         
-        # Add timestamps for each port
-        self._port_scan_tracker[ip].extend([now] * len(ports))
+        # Store ports with timestamps for sequential detection
+        for port in ports:
+            self._port_scan_tracker[ip].append((now, port))
         
-        # Clean old timestamps
+        # Clean old entries
         cutoff = now - timedelta(seconds=self._config.PORT_SCAN_WINDOW)
         self._port_scan_tracker[ip] = [
-            ts for ts in self._port_scan_tracker[ip] if ts > cutoff
+            (ts, port) for ts, port in self._port_scan_tracker[ip] if ts > cutoff
         ]
         
+        # Count total port contacts
         count = len(self._port_scan_tracker[ip])
         threshold = self._config.PORT_SCAN_THRESHOLD
+        
+        # Check for sequential port scan (e.g., 22, 23, 24, 25)
+        sequential_alert = self._check_sequential_ports(ip, now)
+        if sequential_alert:
+            return sequential_alert
         
         if count >= threshold:
             # Check cooldown to prevent spam
@@ -201,6 +243,50 @@ class AlertService:
             self._add_alert(alert)
             self._port_scan_tracker[ip] = []
             logger.warning(f"ALERT: Port scan from {ip} ({ip_category}): {count} ports")
+            return alert
+        
+        return None
+    
+    def _check_sequential_ports(self, ip: str, now: datetime) -> Optional[Alert]:
+        """Detect sequential port scanning (e.g., 22,23,24 vs random ports)."""
+        if ip not in self._port_scan_tracker:
+            return None
+        
+        # Get recent ports (last 10)
+        recent = self._port_scan_tracker[ip][-10:]
+        if len(recent) < 5:
+            return None
+        
+        ports_only = [port for _, port in recent]
+        
+        # Check for sequential pattern (3+ consecutive ports)
+        sequential_count = 0
+        max_sequential = 0
+        for i in range(1, len(ports_only)):
+            if ports_only[i] == ports_only[i-1] + 1:
+                sequential_count += 1
+                max_sequential = max(max_sequential, sequential_count)
+            else:
+                sequential_count = 0
+        
+        # Alert if 3+ sequential ports detected
+        if max_sequential >= 3:
+            if self._is_on_cooldown(ip, "sequential_scan"):
+                return None
+            
+            ip_category = self._get_ip_category(ip)
+            alert = Alert(
+                id=f"sequential_scan_{ip}_{now.timestamp()}",
+                severity="warning",
+                source_ip=ip,
+                ip_category=ip_category,
+                description=f"Sequential port scan: {max_sequential}+ consecutive ports",
+                timestamp=now,
+                count=max_sequential,
+                alert_type="sequential_scan",
+            )
+            self._add_alert(alert)
+            logger.warning(f"ALERT: Sequential port scan from {ip}: {max_sequential} consecutive ports")
             return alert
         
         return None

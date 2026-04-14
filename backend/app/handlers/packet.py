@@ -86,6 +86,8 @@ class PacketHandler:
         http_path = None
         http_user_agent = None
         tls_sni = None
+        tls_version = None
+        tls_cipher = None
         
         # TCP state tracking
         tcp_state = None
@@ -153,7 +155,12 @@ class PacketHandler:
                 http_method = http_data.get('method')
                 http_path = http_data.get('path')
                 http_user_agent = http_data.get('user_agent')
-            tls_sni = decoded.get('tls')
+            
+            tls_data = decoded.get('tls')
+            if tls_data:
+                tls_sni = tls_data.get('sni')
+                tls_version = tls_data.get('version')
+                tls_cipher = tls_data.get('cipher')
         
         # Track IP traffic stats
         if src and dst and length:
@@ -191,6 +198,8 @@ class PacketHandler:
                 http_path=http_path,
                 http_user_agent=http_user_agent,
                 tls_sni=tls_sni,
+                tls_version=tls_version,
+                tls_cipher=tls_cipher,
                 tcp_state=tcp_state,
                 tcp_flags=tcp_flags,
             )

@@ -24,6 +24,8 @@ interface PacketData {
   http_method?: string;
   http_path?: string;
   tls_sni?: string;
+  tls_version?: string;
+  tls_cipher?: string;
 }
 
 interface IPStats {
@@ -44,6 +46,8 @@ interface OverviewPanelProps {
   topTalkers: IPStats[];
   localProtocolFilter: string;
   onProtocolFilterChange: (value: string) => void;
+  ipFilter?: string;
+  onIpFilterChange?: (filter: string) => void;
 }
 
 export function OverviewPanel({
@@ -53,6 +57,8 @@ export function OverviewPanel({
   topTalkers,
   localProtocolFilter,
   onProtocolFilterChange,
+  ipFilter = "",
+  onIpFilterChange,
 }: OverviewPanelProps) {
   const [showConnections, setShowConnections] = useState(false);
   const [showTopTalkers, setShowTopTalkers] = useState(false);
@@ -183,6 +189,8 @@ export function OverviewPanel({
           <input
             type="text"
             placeholder="FILTER_IP"
+            value={ipFilter}
+            onChange={(e) => onIpFilterChange?.(e.target.value)}
             className="px-3 h-12 bg-black/40 border rounded-sm text-[11px] text-primary font-mono w-48 focus:outline-none focus:border-primary/40 transition-colors border-white/10"
           />
           <select
@@ -232,6 +240,8 @@ export function OverviewPanel({
                   </td>
                   <td className="p-2 font-mono text-muted-foreground max-w-[200px] truncate">
                     {p.info}
+                    {p.tls_sni && <span className="text-primary ml-1">TLS:{p.tls_sni}</span>}
+                    {p.tls_version && <span className="text-amber-400 ml-1">[{p.tls_version}{p.tls_cipher ? ` ${p.tls_cipher}` : ''}]</span>}
                   </td>
                 </tr>
               ))}

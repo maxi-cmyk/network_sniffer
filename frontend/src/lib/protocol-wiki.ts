@@ -22,9 +22,7 @@ export interface ProtocolInfo {
 }
 
 export const PROTOCOL_WIKI: Record<string, ProtocolInfo> = {
-  // =========================================================================
   // TRANSPORT LAYER (L4)
-  // =========================================================================
   TCP: {
     name: 'TCP',
     shortDescription: 'Transmission Control Protocol',
@@ -70,9 +68,7 @@ matters more than perfect delivery.`,
     },
   },
 
-  // =========================================================================
   // APPLICATION LAYER (L7)
-  // =========================================================================
   DNS: {
     name: 'DNS',
     shortDescription: 'Domain Name System',
