@@ -1,6 +1,6 @@
 # Network Sniffer
 
-Real-time network packet sniffer with WebSocket streaming and live dashboard visualization.
+Real-time network packet sniffer with WebSocket streaming and live dashboard visualization to understand networks
 
 ## Tech Stack
 
