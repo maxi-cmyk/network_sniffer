@@ -1,12 +1,16 @@
 /**
- * Overview Panel Component
- * TCP connections, Top Talkers, and packet table
+ * Overview Panel - net-noir
+ * Terminal-style packet display with phosphor aesthetic
  */
 
 "use client";
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+
+const CYAN = "#00ffcc";
+const AMBER = "#ffaa00";
+const PINK = "#ff3366";
 
 interface PacketData {
   timestamp: string;
@@ -50,6 +54,17 @@ interface OverviewPanelProps {
   onIpFilterChange?: (filter: string) => void;
 }
 
+const PROTOCOL_COLORS: Record<string, { color: string; bg: string }> = {
+  TCP: { color: CYAN, bg: "rgba(0, 255, 204, 0.12)" },
+  UDP: { color: AMBER, bg: "rgba(255, 170, 0, 0.12)" },
+  ICMP: { color: PINK, bg: "rgba(255, 51, 102, 0.12)" },
+  ARP: { color: "#9966ff", bg: "rgba(153, 102, 255, 0.12)" },
+  IP: { color: "#5a8a70", bg: "rgba(90, 138, 112, 0.12)" },
+  DNS: { color: AMBER, bg: "rgba(255, 170, 0, 0.12)" },
+  HTTP: { color: CYAN, bg: "rgba(0, 255, 204, 0.12)" },
+  TLS: { color: PINK, bg: "rgba(255, 51, 102, 0.12)" },
+};
+
 export function OverviewPanel({
   packets,
   filteredPackets,
@@ -64,15 +79,15 @@ export function OverviewPanel({
   const [showTopTalkers, setShowTopTalkers] = useState(false);
 
   return (
-    <div>
+    <div className="space-y-3">
       {/* TCP Connections Panel */}
-      <div className="surface-glass rounded-sm ring-1 ring-white/5">
+      <div className="surface-cyber rounded-md">
         <button
           onClick={() => setShowConnections(!showConnections)}
-          className="w-full flex items-center justify-between p-3 hover:bg-white/5 transition-colors"
+          className="w-full flex items-center justify-between p-3 hover:bg-[var(--surface-elevated)] transition-colors"
         >
-          <span className="text-technical text-[10px]">TCP CONNECTIONS</span>
-          <span className="text-[10px] text-muted-foreground">
+          <span className="font-tech text-sm tracking-wider text-phosphor">TCP_CONNECTIONS</span>
+          <span className="font-tech text-sm text-[var(--text-muted)]">
             {showConnections ? "▲" : "▼"}{" "}
             {connections
               ? ` ${connections.ESTABLISHED} EST / ${connections.CONNECTING} SYN / ${connections.CLOSED} CL`
@@ -80,54 +95,60 @@ export function OverviewPanel({
           </span>
         </button>
         {showConnections && (
-          <div className="border-t border-white/5 max-h-48 overflow-auto">
-            <table className="w-full text-[10px]">
-              <thead className="sticky top-0 bg-background/80 backdrop-blur-md">
-                <tr className="text-left text-secondary-foreground text-technical text-[10px] border-b border-border/10">
-                  <th className="p-2 font-medium">Source</th>
-                  <th className="p-2 font-medium">Destination</th>
-                  <th className="p-2 font-medium">State</th>
-                  <th className="p-2 font-medium text-right">Flags</th>
+          <div className="border-t border-[var(--border)] max-h-48 overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-[var(--surface)]">
+                <tr className="text-left font-tech text-sm text-[var(--text-dim)] border-b border-[var(--border)]">
+                  <th className="p-2 font-medium">SOURCE</th>
+                  <th className="p-2 font-medium">DESTINATION</th>
+                  <th className="p-2 font-medium">STATE</th>
+                  <th className="p-2 font-medium text-right">FLAGS</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/10">
+              <tbody className="divide-y divide-[var(--border)]">
                 {filteredPackets
                   .filter((p) => p.proto === "TCP" && p.tcp_state)
                   .slice(-20)
                   .reverse()
-                  .map((p, i) => (
-                    <tr key={`${p.timestamp}-${i}`} className="hover:bg-white/5">
-                      <td className="p-2 font-mono text-primary">
-                        {p.src}:{p.src_port}
-                      </td>
-                      <td className="p-2 font-mono text-primary">
-                        {p.dst}:{p.dst_port}
-                      </td>
-                      <td className="p-2">
-                        <span
-                          className={cn(
-                            "px-2 py-0.5 rounded-sm text-[9px] uppercase font-bold",
-                            p.tcp_state === "ESTABLISHED"
-                              ? "bg-green-500/20 text-green-400"
-                              : p.tcp_state === "CLOSED"
-                              ? "bg-gray-500/20 text-gray-400"
-                              : "bg-yellow-500/20 text-yellow-400"
-                          )}
-                        >
-                          {p.tcp_state}
-                        </span>
-                      </td>
-                      <td className="p-2 text-right text-muted-foreground">
-                        {p.tcp_flags || "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  .map((p, i) => {
+                    const stateColor = p.tcp_state === "ESTABLISHED" 
+                      ? { color: CYAN, bg: CYAN }
+                      : p.tcp_state === "CLOSED"
+                      ? { color: "#5a8a70", bg: "#5a8a70" }
+                      : { color: AMBER, bg: AMBER };
+                    return (
+                      <tr key={`${p.timestamp}-${i}`} className="hover:bg-[var(--surface-elevated)] transition-colors">
+                        <td className="p-2 font-tech" style={{ color: CYAN }}>
+                          {p.src}:{p.src_port}
+                        </td>
+                        <td className="p-2 font-tech" style={{ color: CYAN }}>
+                          {p.dst}:{p.dst_port}
+                        </td>
+                        <td className="p-2">
+                          <span
+                            className="px-2 py-1 rounded text-sm font-tech uppercase"
+                            style={{ 
+                              backgroundColor: `${stateColor.bg}20`,
+                              color: stateColor.color,
+                              border: `1px solid ${stateColor.color}`
+                            }}
+                          >
+                            {p.tcp_state}
+                          </span>
+                        </td>
+                        <td className="p-2 text-right font-tech text-[var(--text-muted)]">
+                          {p.tcp_flags || "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
-            {filteredPackets.filter((p) => p.proto === "TCP" && p.tcp_state)
-              .length === 0 && (
-              <div className="p-4 text-center text-muted-foreground text-[10px]">
-                No TCP connections detected
+            {filteredPackets.filter((p) => p.proto === "TCP" && p.tcp_state).length === 0 && (
+              <div className="p-6 text-center">
+                <span className="font-tech text-sm text-[var(--text-dim)]">
+                  // NO TCP CONNECTIONS DETECTED
+                </span>
               </div>
             )}
           </div>
@@ -135,39 +156,39 @@ export function OverviewPanel({
       </div>
 
       {/* Top Talkers Panel */}
-      <div className="surface-glass rounded-sm ring-1 ring-white/5 mt-2">
+      <div className="surface-cyber rounded-md">
         <button
           onClick={() => setShowTopTalkers(!showTopTalkers)}
-          className="w-full flex items-center justify-between p-3 hover:bg-white/5 transition-colors"
+          className="w-full flex items-center justify-between p-3 hover:bg-[var(--surface-elevated)] transition-colors"
         >
-          <span className="text-technical text-[10px]">TOP TALKERS</span>
-          <span className="text-[10px] text-muted-foreground">
+          <span className="font-tech text-sm tracking-wider text-phosphor">TOP_TALKERS</span>
+          <span className="font-tech text-sm text-[var(--text-muted)]">
             {showTopTalkers ? "▲" : "▼"}
           </span>
         </button>
         {showTopTalkers && (
-          <div className="border-t border-white/5 max-h-48 overflow-auto">
+          <div className="border-t border-[var(--border)] max-h-48 overflow-auto">
             {topTalkers.length > 0 ? (
-              <table className="w-full text-[10px]">
-                <thead className="sticky top-0 bg-background/80 backdrop-blur-md">
-                  <tr className="text-left text-secondary-foreground text-technical text-[10px] border-b border-border/10">
-                    <th className="p-2 font-medium">IP Address</th>
-                    <th className="p-2 font-medium text-right">Sent</th>
-                    <th className="p-2 font-medium text-right">Recv</th>
-                    <th className="p-2 font-medium text-right">Total</th>
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-[var(--surface)]">
+                  <tr className="text-left font-tech text-sm text-[var(--text-dim)] border-b border-[var(--border)]">
+                    <th className="p-2 font-medium">IP_ADDRESS</th>
+                    <th className="p-2 font-medium text-right">SENT</th>
+                    <th className="p-2 font-medium text-right">RECV</th>
+                    <th className="p-2 font-medium text-right">TOTAL</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/10">
+                <tbody className="divide-y divide-[var(--border)]">
                   {topTalkers.map((talker, i) => (
-                    <tr key={i} className="hover:bg-white/5">
-                      <td className="p-2 font-mono text-primary">{talker.ip}</td>
-                      <td className="p-2 text-right text-muted-foreground">
+                    <tr key={i} className="hover:bg-[var(--surface-elevated)] transition-colors">
+                      <td className="p-2 font-tech" style={{ color: CYAN }}>{talker.ip}</td>
+                      <td className="p-2 text-right font-tech text-[var(--text-muted)]">
                         {(talker.sent / 1024).toFixed(1)} KB
                       </td>
-                      <td className="p-2 text-right text-muted-foreground">
+                      <td className="p-2 text-right font-tech text-[var(--text-muted)]">
                         {(talker.recv / 1024).toFixed(1)} KB
                       </td>
-                      <td className="p-2 text-right text-primary">
+                      <td className="p-2 text-right font-tech" style={{ color: CYAN }}>
                         {(talker.total / 1024).toFixed(1)} KB
                       </td>
                     </tr>
@@ -175,28 +196,30 @@ export function OverviewPanel({
                 </tbody>
               </table>
             ) : (
-              <div className="p-4 text-center text-muted-foreground text-[10px]">
-                No traffic data yet
+              <div className="p-6 text-center">
+                <span className="font-tech text-sm text-[var(--text-dim)]">
+                  // NO TRAFFIC DATA YET
+                </span>
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Protocol Filter */}
-      <div className="surface-glass rounded-sm ring-1 ring-white/5 mt-2">
-        <div className="flex bg-white/5 border-b border-white/5 p-2 gap-2">
+      {/* Filter Panel */}
+      <div className="surface-cyber rounded-md">
+        <div className="flex bg-[var(--surface-elevated)] border-b border-[var(--border)] p-3 gap-3">
           <input
             type="text"
             placeholder="FILTER_IP"
             value={ipFilter}
             onChange={(e) => onIpFilterChange?.(e.target.value)}
-            className="px-3 h-12 bg-black/40 border rounded-sm text-[11px] text-primary font-mono w-48 focus:outline-none focus:border-primary/40 transition-colors border-white/10"
+            className="input-cyber h-11 w-48"
           />
           <select
             value={localProtocolFilter}
             onChange={(e) => onProtocolFilterChange(e.target.value)}
-            className="px-3 h-12 bg-black/40 border border-white/10 rounded-sm text-[11px] text-primary font-mono focus:outline-none focus:border-primary/40 transition-colors cursor-pointer"
+            className="input-cyber h-11"
           >
             <option value="all">ALL_PROTOCOLS</option>
             <option value="TCP">TCP</option>
@@ -209,45 +232,66 @@ export function OverviewPanel({
       </div>
 
       {/* Packet Table */}
-      <div className="surface-glass rounded-sm ring-1 ring-white/5 mt-2">
+      <div className="surface-cyber rounded-md overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-[10px]">
-            <thead className="sticky top-0 bg-background/80 backdrop-blur-md">
-              <tr className="text-left text-secondary-foreground text-technical text-[10px] border-b border-border/10">
-                <th className="p-2 font-medium w-24">Time</th>
-                <th className="p-2 font-medium w-20">Proto</th>
-                <th className="p-2 font-medium">Source</th>
-                <th className="p-2 font-medium">Destination</th>
-                <th className="p-2 font-medium w-16 text-right">Len</th>
-                <th className="p-2 font-medium">Info</th>
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-[var(--surface)]">
+              <tr className="text-left font-tech text-sm text-[var(--text-dim)] border-b border-[var(--border)]">
+                <th className="p-2 font-medium w-24">TIMESTAMP</th>
+                <th className="p-2 font-medium w-20">PROTO</th>
+                <th className="p-2 font-medium">SOURCE</th>
+                <th className="p-2 font-medium">DESTINATION</th>
+                <th className="p-2 font-medium w-16 text-right">LENGTH</th>
+                <th className="p-2 font-medium">DETAILS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/10">
-              {filteredPackets.slice(-50).reverse().map((p, i) => (
-                <tr key={`${p.timestamp}-${i}`} className="hover:bg-white/5">
-                  <td className="p-2 font-mono text-muted-foreground text-[9px]">
-                    {new Date(p.timestamp).toLocaleTimeString()}
-                  </td>
-                  <td className="p-2">
-                    <span className="px-1.5 py-0.5 rounded-sm text-[9px] bg-white/10 text-primary">
-                      {p.proto}
-                    </span>
-                  </td>
-                  <td className="p-2 font-mono text-primary">{p.src}</td>
-                  <td className="p-2 font-mono text-primary">{p.dst}</td>
-                  <td className="p-2 text-right text-muted-foreground">
-                    {p.length}
-                  </td>
-                  <td className="p-2 font-mono text-muted-foreground max-w-[200px] truncate">
-                    {p.info}
-                    {p.tls_sni && <span className="text-primary ml-1">TLS:{p.tls_sni}</span>}
-                    {p.tls_version && <span className="text-amber-400 ml-1">[{p.tls_version}{p.tls_cipher ? ` ${p.tls_cipher}` : ''}]</span>}
-                  </td>
-                </tr>
-              ))}
+            <tbody className="divide-y divide-[var(--border)]">
+              {filteredPackets.slice(-50).reverse().map((p, i) => {
+                const pColor = PROTOCOL_COLORS[p.proto] || PROTOCOL_COLORS.IP;
+                return (
+                  <tr 
+                    key={`${p.timestamp}-${i}`} 
+                    className="hover:bg-[var(--surface-elevated)] transition-colors"
+                  >
+                    <td className="p-2 font-tech text-sm text-[var(--text-muted)]">
+                      {new Date(p.timestamp).toLocaleTimeString('en-GB', { hour12: false })}
+                    </td>
+                    <td className="p-2">
+                      <span 
+                        className="px-2 py-1 rounded text-sm font-tech uppercase"
+                        style={{ 
+                          backgroundColor: pColor.bg,
+                          color: pColor.color,
+                          border: `1px solid ${pColor.color}`
+                        }}
+                      >
+                        {p.proto}
+                      </span>
+                    </td>
+                    <td className="p-2 font-tech" style={{ color: CYAN }}>{p.src}</td>
+                    <td className="p-2 font-tech" style={{ color: CYAN }}>{p.dst}</td>
+                    <td className="p-2 text-right font-tech text-[var(--text-muted)]">
+                      {p.length}
+                    </td>
+                    <td className="p-2 font-tech text-[var(--text-muted)] max-w-[200px] truncate">
+                      {p.info}
+                      {p.tls_sni && <span className="ml-2" style={{ color: CYAN }}>TLS:{p.tls_sni}</span>}
+                      {p.tls_version && <span className="ml-2" style={{ color: AMBER }}>[{p.tls_version}{p.tls_cipher ? ` ${p.tls_cipher}` : ''}]</span>}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+        {filteredPackets.length === 0 && (
+          <div className="p-8 text-center">
+            <div className="font-tech text-sm text-phosphor mb-2">◈</div>
+            <span className="font-tech text-sm text-[var(--text-dim)]">
+              // AWAITING PACKET STREAM...
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

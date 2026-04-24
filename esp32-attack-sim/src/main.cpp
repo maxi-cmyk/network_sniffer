@@ -91,13 +91,13 @@ void handleAttackStart() {
     
     // Simple parsing
     if (body.indexOf("\"ping_flood\"") >= 0 || body.indexOf("ping_flood") >= 0) {
-        strcpy(type, "ping_flood");
+        strncpy(type, "ping_flood", sizeof(type) - 1); type[sizeof(type) - 1] = '\0';
     } else if (body.indexOf("\"port_scan\"") >= 0) {
-        strcpy(type, "port_scan");
+        strncpy(type, "port_scan", sizeof(type) - 1); type[sizeof(type) - 1] = '\0';
     } else if (body.indexOf("\"syn_flood\"") >= 0) {
-        strcpy(type, "syn_flood");
+        strncpy(type, "syn_flood", sizeof(type) - 1); type[sizeof(type) - 1] = '\0';
     } else if (body.indexOf("\"arp_storm\"") >= 0) {
-        strcpy(type, "arp_storm");
+        strncpy(type, "arp_storm", sizeof(type) - 1); type[sizeof(type) - 1] = '\0';
     }
     
     // Parse interval_ms
@@ -109,14 +109,16 @@ void handleAttackStart() {
     // Start the attack
     if (strcmp(type, "ping_flood") == 0) {
         pingFloodStart(interval);
-        strcpy(attackState.attack_type, "ping_flood");
+        strncpy(attackState.attack_type, "ping_flood", sizeof(attackState.attack_type) - 1);
+        attackState.attack_type[sizeof(attackState.attack_type) - 1] = '\0';
     }
     // TODO: Add other attack types
-    
+
     attackState.active = true;
     attackState.packets_sent = 0;
     attackState.start_time_ms = millis();
-    strcpy(attackState.target, configGetTargetIP());
+    strncpy(attackState.target, configGetTargetIP(), sizeof(attackState.target) - 1);
+    attackState.target[sizeof(attackState.target) - 1] = '\0';
     
     ledSetMode(LED_ATTACKING);
     
@@ -137,7 +139,8 @@ void handleAttackStop() {
     // TODO: Stop other attacks
     
     attackState.active = false;
-    strcpy(attackState.attack_type, "idle");
+    strncpy(attackState.attack_type, "idle", sizeof(attackState.attack_type) - 1);
+    attackState.attack_type[sizeof(attackState.attack_type) - 1] = '\0';
     attackState.packets_sent = 0;
     
     ledSetMode(LED_IDLE);
@@ -287,7 +290,8 @@ void loop() {
             Serial.println("[ATTACK] Max duration reached - auto-stopping");
             pingFloodStop();
             attackState.active = false;
-            strcpy(attackState.attack_type, "idle");
+            strncpy(attackState.attack_type, "idle", sizeof(attackState.attack_type) - 1);
+            attackState.attack_type[sizeof(attackState.attack_type) - 1] = '\0';
             ledSetMode(LED_IDLE);
         }
     }

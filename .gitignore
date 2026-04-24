@@ -63,6 +63,7 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+CLAUDE.md
 
 # Graphify (knowledge graph)
 .graphify_*.json

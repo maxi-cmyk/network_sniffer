@@ -285,14 +285,12 @@ export function useTrafficStream({
             // Update TCP connection counts
             if (p.proto === "TCP" && p.tcp_state) {
               const state = p.tcp_state;
-              if (state === "ESTABLISHED" || state === "SYN_RCVD" || state === "SYN_SENT") {
+              if (state === "ESTABLISHED") {
+                newConnections.ESTABLISHED = (newConnections.ESTABLISHED || 0) + 1;
+              } else if (state === "SYN_SENT" || state === "SYN_RCVD") {
                 newConnections.CONNECTING = (newConnections.CONNECTING || 0) + 1;
               } else if (state === "CLOSED" || state === "CLOSE_WAIT" || state === "RESET" || state === "FIN_WAIT") {
                 newConnections.CLOSED = (newConnections.CLOSED || 0) + 1;
-              }
-              if (state === "ESTABLISHED" && !state.includes("CLOSED")) {
-                newConnections.ESTABLISHED = (newConnections.ESTABLISHED || 0) + 1;
-                newConnections.CONNECTING = Math.max(0, (newConnections.CONNECTING || 0) - 1);
               }
             }
             onPacketRef.current?.(p);

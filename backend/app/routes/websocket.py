@@ -7,12 +7,15 @@ WebSocket endpoint for real-time packet streaming.
 
 import asyncio
 import json
+import logging
 import threading
 
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi import APIRouter
 
 from app.services.registry import sniffer_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -53,9 +56,10 @@ async def websocket_traffic(websocket: WebSocket):
             except json.JSONDecodeError:
                 pass
     except WebSocketDisconnect:
-        sniffer_service.remove_client(websocket)
+        pass  # Normal disconnect, client removed via onclose
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
+    finally:
         sniffer_service.remove_client(websocket)
 
 

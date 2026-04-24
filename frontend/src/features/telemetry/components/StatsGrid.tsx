@@ -1,11 +1,12 @@
 /**
- * Stats Grid Component
- * Displays key metrics: total packets, bytes, protocol, unique IPs
+ * Stats Grid - net-noir
+ * Real-time metrics with phosphor glow
  */
 
 import { AnimatedNumber } from "./AnimatedNumber";
 
-const ACCENT = "#69f6b8";
+const CYAN = "#00ffcc";
+const AMBER = "#ffaa00";
 
 interface Stats {
   totalPackets: number;
@@ -21,28 +22,56 @@ export function StatsGrid({ stats }: { stats?: Stats }) {
   if (!stats) return null;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="surface-glass rounded-sm p-4 ring-1 ring-white/5">
-        <div className="text-muted-foreground text-technical text-[10px]">Total Packets</div>
-        <div className="text-2xl font-bold mt-1 glow-primary" style={{ color: ACCENT }}>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Total Packets */}
+      <div className="surface-cyber rounded-md p-4 hover:border-glow-cyan transition-all duration-300">
+        <div className="font-tech text-sm text-[var(--text-muted)] tracking-wider mb-2">
+          TOTAL_PACKETS
+        </div>
+        <div className="font-tech text-5xl font-bold glow-cyan" style={{ color: CYAN }}>
           <AnimatedNumber value={stats.totalPackets} />
         </div>
-      </div>
-      <div className="surface-glass rounded-sm p-4 ring-1 ring-white/5">
-        <div className="text-muted-foreground text-technical text-[10px]">Total Data</div>
-        <div className="text-2xl font-bold mt-1 text-white">
-          <AnimatedNumber value={Math.round(stats.totalBytes / 1024)} /> <span className="text-xs text-muted-foreground">KB</span>
+        <div className="font-tech text-xs text-[var(--text-dim)] mt-2">
+          <span style={{ color: CYAN }}>●</span> CAPTURED
         </div>
       </div>
-      <div className="surface-glass rounded-sm p-4 ring-1 ring-white/5">
-        <div className="text-muted-foreground text-technical text-[10px]">Top Protocol</div>
-        <div className="text-2xl font-bold mt-1 text-white">{topProtocol?.[0] || "—"}</div>
-        <div className="text-[10px] text-muted-foreground technical uppercase mt-1">{topProtocol?.[1] || 0} pks</div>
+
+      {/* Total Data */}
+      <div className="surface-cyber rounded-md p-4 hover:border-glow-amber transition-all duration-300">
+        <div className="font-tech text-sm text-[var(--text-muted)] tracking-wider mb-2">
+          TOTAL_DATA
+        </div>
+        <div className="font-tech text-5xl font-bold glow-amber" style={{ color: AMBER }}>
+          <AnimatedNumber value={Math.round(stats.totalBytes / 1024)} />
+        </div>
+        <div className="font-tech text-xs text-[var(--text-dim)] mt-2">
+          <span style={{ color: AMBER }}>●</span> KILOBYTES
+        </div>
       </div>
-      <div className="surface-glass rounded-sm p-4 ring-1 ring-white/5">
-        <div className="text-muted-foreground text-technical text-[10px]">Unique Nodes</div>
-        <div className="text-2xl font-bold mt-1 text-white">
+
+      {/* Top Protocol */}
+      <div className="surface-cyber rounded-md p-4 hover:border-glow-cyan transition-all duration-300">
+        <div className="font-tech text-sm text-[var(--text-muted)] tracking-wider mb-2">
+          TOP_PROTOCOL
+        </div>
+        <div className="font-tech text-5xl font-bold text-phosphor">
+          {topProtocol?.[0] || "—"}
+        </div>
+        <div className="font-tech text-xs text-[var(--text-dim)] mt-2">
+          {topProtocol?.[1] || 0} pkts
+        </div>
+      </div>
+
+      {/* Unique Nodes */}
+      <div className="surface-cyber rounded-md p-4 hover:border-glow-amber transition-all duration-300">
+        <div className="font-tech text-sm text-[var(--text-muted)] tracking-wider mb-2">
+          UNIQUE_NODES
+        </div>
+        <div className="font-tech text-5xl font-bold text-phosphor">
           <AnimatedNumber value={stats.uniqueIPs} />
+        </div>
+        <div className="font-tech text-xs text-[var(--text-dim)] mt-2">
+          <span style={{ color: AMBER }}>●</span> ACTIVE
         </div>
       </div>
     </div>

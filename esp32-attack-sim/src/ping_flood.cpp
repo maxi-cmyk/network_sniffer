@@ -52,6 +52,7 @@ void pingFloodStop() {
     
     if (ping_handle) {
         esp_ping_stop(ping_handle);
+        esp_ping_delete_session(ping_handle);
         ping_handle = NULL;
     }
     

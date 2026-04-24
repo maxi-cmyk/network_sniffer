@@ -17,6 +17,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from ipaddress import ip_address, AddressValueError
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -173,13 +174,15 @@ class AlertService:
     
     def _get_ip_category(self, ip: str) -> str:
         """Determine if IP is private, public, or localhost."""
-        if ip.startswith(('192.168.', '10.', '127.')):
-            return 'private'
-        elif ip.startswith('172.16.') or ip.startswith('172.17.') or ip.startswith('172.18.') or ip.startswith('172.19.') or ip.startswith('172.2') or ip.startswith('172.30.') or ip.startswith('172.31.'):
-            return 'private'
-        elif ip == 'localhost' or ip.startswith('::1'):
-            return 'localhost'
-        return 'public'
+        try:
+            addr = ip_address(ip)
+            if addr.is_loopback:
+                return 'localhost'
+            if addr.is_private:
+                return 'private'
+            return 'public'
+        except (AddressValueError, ValueError):
+            return 'unknown'
     
     def _get_expected_protocol(self, port: int) -> Optional[str]:
         """Get expected protocol for a port."""
@@ -660,26 +663,41 @@ class AlertService:
         return elapsed < self._config.ALERT_COOLDOWN
     
     def _cleanup(self):
-        """Remove old alerts."""
+        """Remove old alerts and stale tracker entries."""
         now = datetime.now()
         cutoff = now - timedelta(seconds=self._config.ALERT_TTL)
-        
+
         # Cleanup every 10 seconds max
         if (now - self._last_cleanup).total_seconds() < 10:
             return
-        
+
         # Remove old alerts
         self._alerts = [a for a in self._alerts if a.timestamp > cutoff]
-        
-        # Clean old trackers
-        for tracker in [self._port_scan_tracker, self._syn_tracker, 
-                      self._packet_rate_tracker, self._volume_tracker]:
-            keys_to_remove = [k for k, v in tracker.items() 
-                            if (now - datetime(2000,1,1)).days > 1]  # Simple cleanup
-            # Actually, just cap the size
-            if len(tracker) > 1000:
-                # Remove oldest entries
-                for _ in range(len(tracker) - 500):
-                    tracker.pop(next(iter(tracker)), None)
-        
+
+        tracker_cutoff = now - timedelta(seconds=30)
+
+        # Clean port_scan_tracker: values are list of (timestamp, port) tuples
+        for ip in list(self._port_scan_tracker.keys()):
+            entries = [(ts, port) for ts, port in self._port_scan_tracker[ip] if ts > tracker_cutoff]
+            if entries:
+                self._port_scan_tracker[ip] = entries
+            else:
+                del self._port_scan_tracker[ip]
+
+        # Clean packet_rate_tracker: values are list of timestamps
+        for ip in list(self._packet_rate_tracker.keys()):
+            entries = [ts for ts in self._packet_rate_tracker[ip] if ts > tracker_cutoff]
+            if entries:
+                self._packet_rate_tracker[ip] = entries
+            else:
+                del self._packet_rate_tracker[ip]
+
+        # Cap simple trackers (syn, volume, connection, cooldowns) at 200 keys
+        for tracker in [self._syn_tracker, self._volume_tracker,
+                        self._connection_tracker, self._cooldowns]:
+            if len(tracker) > 200:
+                keys = list(tracker.keys())
+                for k in keys[:len(keys) - 200]:
+                    del tracker[k]
+
         self._last_cleanup = now

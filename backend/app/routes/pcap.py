@@ -11,12 +11,23 @@ API Endpoints:
 
 import os
 import json
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.services.pcap import PCAPService
 from app.services.registry import sniffer_service
 
 router = APIRouter()
+
+
+def _safe_filepath(filename: str) -> str:
+    """Sanitize filename and return safe absolute path within cwd."""
+    basename = os.path.basename(filename)
+    if not basename or basename in ('.', '..'):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    filepath = os.path.join(os.getcwd(), basename)
+    if not os.path.realpath(filepath).startswith(os.path.realpath(os.getcwd())):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    return filepath
 
 
 @router.post("/pcap/save")
@@ -25,10 +36,10 @@ async def save_pcap(filename: str = "capture.pcap"):
     Save captured packets to a PCAP file.
     """
     pcap_service = PCAPService(lambda: sniffer_service.raw_packets)
-    
-    filepath = os.path.join(os.getcwd(), filename)
+
+    filepath = _safe_filepath(filename)
     result = pcap_service.save(filepath)
-    
+
     return {
         "success": result["success"],
         "filepath": filepath if result["success"] else None,
@@ -43,7 +54,7 @@ async def load_pcap(filename: str):
     Load packets from a PCAP file and return them to client.
     """
     pcap_service = PCAPService(lambda: [])
-    filepath = os.path.join(os.getcwd(), filename)
+    filepath = _safe_filepath(filename)
     packets = pcap_service.load(filepath)
     
     if not packets:

@@ -7,6 +7,7 @@ Simple health check endpoint.
 
 from fastapi import APIRouter
 
+from app.services.alerts import AlertConfig
 from app.services.registry import sniffer_service, alert_service
 
 router = APIRouter()
@@ -83,10 +84,10 @@ async def simulate_attacks(request: dict):
     high_volume = request.get("high_volume", False)
     packet_rate = request.get("packet_rate", False)
     target_ip = request.get("target_ip", "127.0.0.1")
-    intensity = request.get("intensity", 5)
-    
+    intensity = max(1, min(10, int(request.get("intensity", 5))))
+
     results = []
-    
+
     if port_scan:
         port_count = intensity * 2  # 2-20 ports
         ports = [80, 443, 8080, 22, 3306, 5432, 6379, 8080][:port_count]
@@ -153,8 +154,8 @@ async def simulate_real_attacks(request: dict):
     syn_flood = request.get("syn_flood", False)
     high_volume = request.get("high_volume", False)
     target_ip = request.get("target_ip", "127.0.0.1")
-    intensity = request.get("intensity", 5)
-    
+    intensity = max(1, min(10, int(request.get("intensity", 5))))
+
     from scapy.all import IP, TCP, RandShort, Raw, send
     import random
     

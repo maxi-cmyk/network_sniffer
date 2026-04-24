@@ -1,12 +1,15 @@
 /**
- * Settings Panel Component
- * Configure alert thresholds
+ * Settings Panel - net-noir
+ * Terminal-style settings with phosphor aesthetic
  */
 
 "use client";
 
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+
+const CYAN = "#00ffcc";
+const AMBER = "#ffaa00";
 
 interface SettingsPanelProps {
   API_URL: string;
@@ -85,30 +88,41 @@ export function SettingsPanel({ API_URL }: SettingsPanelProps) {
 
   if (loading) {
     return (
-      <div className="surface-glass rounded-sm ring-1 ring-white/5 p-4">
-        <span className="text-muted-foreground text-technical text-[10px]">Loading settings...</span>
+      <div className="surface-cyber rounded-md p-6 text-center">
+        <div className="font-tech text-sm text-phosphor animate-pulse mb-2">◈</div>
+        <div className="font-tech text-sm text-[var(--text-dim)]">
+          // LOADING CONFIG...
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="surface-glass rounded-sm ring-1 ring-white/5 p-4 space-y-4">
-      <div className="text-technical text-[10px] mb-4">ALERT SETTINGS</div>
+    <div className="surface-cyber rounded-md p-4 space-y-4">
+<div className="font-tech text-sm tracking-wider text-phosphor border-b border-[var(--border)] pb-3">
+        SYSTEM_SETTINGS
+      </div>
 
       {settings?.test_mode && (
-        <div className="bg-amber-500/20 text-amber-400 text-[10px] p-2 rounded-sm">
-          TEST MODE - Lower thresholds active
+        <div 
+          className="font-tech text-sm p-3 rounded"
+          style={{ 
+            backgroundColor: "rgba(255, 170, 0, 0.12)", 
+            color: AMBER,
+            border: `1px solid ${AMBER}`
+          }}
+        >
+          ⚠ TEST MODE ACTIVE
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <SliderSetting
           label="Port Scan Threshold"
           value={localSettings.portScan}
           min={5}
           max={100}
           step={5}
-          unit="ports"
           onChange={(v) => setLocalSettings(s => ({ ...s, portScan: v }))}
         />
 
@@ -118,7 +132,6 @@ export function SettingsPanel({ API_URL }: SettingsPanelProps) {
           min={1}
           max={30}
           step={1}
-          unit="seconds"
           onChange={(v) => setLocalSettings(s => ({ ...s, portScanWindow: v }))}
         />
 
@@ -128,7 +141,6 @@ export function SettingsPanel({ API_URL }: SettingsPanelProps) {
           min={5}
           max={100}
           step={5}
-          unit="SYNs"
           onChange={(v) => setLocalSettings(s => ({ ...s, synFlood: v }))}
         />
 
@@ -138,8 +150,7 @@ export function SettingsPanel({ API_URL }: SettingsPanelProps) {
           min={102400}
           max={10485760}
           step={102400}
-          unit="bytes"
-          display={(v) => `${(v / 1024 / 1024).toFixed(1)} MB`}
+          displayValue={(v) => `${(v / 1024 / 1024).toFixed(1)} MB`}
           onChange={(v) => setLocalSettings(s => ({ ...s, highVolume: v }))}
         />
 
@@ -149,7 +160,6 @@ export function SettingsPanel({ API_URL }: SettingsPanelProps) {
           min={10}
           max={500}
           step={10}
-          unit="pps"
           onChange={(v) => setLocalSettings(s => ({ ...s, packetRate: v }))}
         />
 
@@ -159,7 +169,7 @@ export function SettingsPanel({ API_URL }: SettingsPanelProps) {
           min={10}
           max={300}
           step={10}
-          unit="seconds"
+          displayValue={(v) => `${v}s`}
           onChange={(v) => setLocalSettings(s => ({ ...s, alertTtl: v }))}
         />
 
@@ -169,7 +179,7 @@ export function SettingsPanel({ API_URL }: SettingsPanelProps) {
           min={10}
           max={300}
           step={10}
-          unit="seconds"
+          displayValue={(v) => `${v}s`}
           onChange={(v) => setLocalSettings(s => ({ ...s, alertCooldown: v }))}
         />
       </div>
@@ -178,19 +188,20 @@ export function SettingsPanel({ API_URL }: SettingsPanelProps) {
         onClick={saveSettings}
         disabled={saving}
         className={cn(
-          "w-full py-3 rounded-sm text-[10px] font-medium transition-all",
+          "w-full py-3 rounded font-tech text-sm tracking-wider transition-all",
           saving
-            ? "bg-white/10 text-muted-foreground cursor-not-allowed"
+            ? "bg-[var(--surface-elevated)] text-[var(--text-dim)] border border-[var(--border)] cursor-not-allowed"
             : saved
-            ? "bg-green-600 text-white"
-            : "bg-primary text-primary-foreground hover:brightness-110"
+            ? "border-[var(--secondary)]"
+            : "btn-primary"
         )}
+        style={saved ? { backgroundColor: AMBER } : undefined}
       >
-        {saving ? "SAVING..." : saved ? "SAVED!" : "SAVE SETTINGS"}
+        {saving ? "// SAVING..." : saved ? "[SAVED]" : "[SAVE CONFIG]"}
       </button>
 
-      <div className="text-[9px] text-muted-foreground text-center">
-        Current: Port Scan {settings?.port_scan_threshold || 25} | SYN Flood {settings?.syn_flood_threshold || 30}
+      <div className="font-tech text-xs text-[var(--text-dim)] text-center">
+        CURRENT: PS:{settings?.port_scan_threshold || 25} | SF:{settings?.syn_flood_threshold || 30}
       </div>
     </div>
   );
@@ -202,8 +213,7 @@ function SliderSetting({
   min,
   max,
   step,
-  unit,
-  display,
+  displayValue,
   onChange,
 }: {
   label: string;
@@ -211,13 +221,12 @@ function SliderSetting({
   min: number;
   max: number;
   step: number;
-  unit: string;
-  display?: (v: number) => string;
+  displayValue?: (v: number) => string;
   onChange: (v: number) => void;
 }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="text-[10px] text-muted-foreground w-36">{label}</span>
+      <span className="font-tech text-sm text-[var(--text-muted)] w-40">{label}</span>
       <input
         type="range"
         min={min}
@@ -225,10 +234,10 @@ function SliderSetting({
         step={step}
         value={value}
         onChange={(e) => onChange(parseInt(e.target.value))}
-        className="flex-1 h-2 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+        className="flex-1 h-2 bg-[var(--surface-elevated)] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--primary)] [&::-webkit-slider-thumb]:shadow-[0_0_8px_var(--primary-glow)]"
       />
-      <span className="text-[10px] text-primary font-mono w-20 text-right">
-        {display ? display(value) : `${value}${unit}`}
+      <span className="font-tech text-sm w-20 text-right" style={{ color: CYAN }}>
+        {displayValue ? displayValue(value) : value}
       </span>
     </div>
   );

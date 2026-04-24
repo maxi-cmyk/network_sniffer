@@ -153,19 +153,17 @@ class SnifferService:
         """
         while True:
             await asyncio.sleep(0.05)  # 50ms
-            
+
             with self._buffer_lock:
                 batch = list(self._packet_buffer)
                 self._packet_buffer.clear()
-            
+
             if not batch:
                 continue
-            
-            # Limit batch size to prevent browser freeze
-            if len(batch) > 200:
-                batch = batch[-200:]
-            
-            await self.broadcast_batch(batch)
+
+            # Send in chunks of 200 to prevent browser freeze
+            for i in range(0, len(batch), 200):
+                await self.broadcast_batch(batch[i:i + 200])
     
     # =========================================================================
     # Packet Processing

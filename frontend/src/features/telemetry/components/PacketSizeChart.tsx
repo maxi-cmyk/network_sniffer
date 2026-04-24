@@ -1,11 +1,13 @@
 /**
- * Packet Size Distribution Chart Component
+ * Packet Size Chart - net-noir
+ * Terminal-style visualization
  */
 
 import { useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-const ACCENT = "#69f6b8";
+const CYAN = "#00ffcc";
+const AMBER = "#ffaa00";
 
 interface PacketSizeChartProps {
   packets: any[];
@@ -20,8 +22,7 @@ const SIZE_BINS = [
   { range: "750-900", min: 750, max: 900 },
   { range: "900-1050", min: 900, max: 1050 },
   { range: "1050-1200", min: 1050, max: 1200 },
-  { range: "1200-1350", min: 1200, max: 1350 },
-  { range: "1350-1500+", min: 1350, max: 99999 },
+  { range: "1200+", min: 1200, max: 99999 },
 ];
 
 export function PacketSizeChart({ packets }: PacketSizeChartProps) {
@@ -38,42 +39,60 @@ export function PacketSizeChart({ packets }: PacketSizeChartProps) {
 
   if (!packets?.length) {
     return (
-      <div className="surface-glass rounded-sm p-4 h-48 flex items-center justify-center ring-1 ring-white/5">
-        <span className="text-muted-foreground text-technical text-[10px]">Awaiting Signal...</span>
+      <div className="surface-cyber rounded-md p-4 h-48 flex items-center justify-center">
+        <div className="text-center">
+          <div className="font-tech text-2xl text-phosphor mb-3">◈</div>
+          <div className="font-tech text-sm text-[var(--text-dim)]">
+            // WAITING FOR DATASTREAM...
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="surface-glass rounded-sm p-4 ring-1 ring-white/5">
-      <div className="text-muted-foreground text-technical text-[10px] mb-2">Packet Size Distribution</div>
-      <ResponsiveContainer width="100%" height={140}>
+    <div className="surface-cyber rounded-md p-4">
+      <div className="font-tech text-sm text-[var(--text-muted)] tracking-wider mb-3">
+        PACKET_SIZE_DISTRIBUTION
+      </div>
+      <ResponsiveContainer width="100%" height={160}>
         <BarChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#1a1a20" vertical={false} />
           <XAxis 
             dataKey="range" 
-            tick={{ fill: "#666", fontSize: 9 }} 
-            axisLine={{ stroke: "#333" }}
-            tickLine={{ stroke: "#333" }}
+            tick={{ fill: "#5a8a70", fontSize: 9, fontFamily: "JetBrains Mono" }} 
+            axisLine={{ stroke: "#1a1a20" }}
+            tickLine={{ stroke: "#1a1a20" }}
             interval={0}
           />
           <YAxis 
-            tick={{ fill: "#666", fontSize: 9 }} 
-            axisLine={{ stroke: "#333" }}
-            tickLine={{ stroke: "#333" }}
-            width={30}
+            tick={{ fill: "#5a8a70", fontSize: 9, fontFamily: "JetBrains Mono" }} 
+            axisLine={{ stroke: "#1a1a20" }}
+            tickLine={{ stroke: "#1a1a20" }}
+            width={35}
           />
           <Tooltip 
-            contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 4 }}
-            labelStyle={{ color: "#fff" }}
-            itemStyle={{ color: ACCENT }}
-            formatter={(value: number) => [`${value} packets`, "Count"]}
+            contentStyle={{ 
+              background: "#0d0d12", 
+              border: `1px solid ${CYAN}`, 
+              borderRadius: 4,
+              boxShadow: `0 0 10px ${CYAN}40`
+            }}
+            labelStyle={{ color: "#b8ffe0", fontSize: 11, fontFamily: "JetBrains Mono" }}
+            itemStyle={{ color: CYAN, fontFamily: "JetBrains Mono" }}
+            formatter={(value: number) => [`${value}`, "packets"]}
             labelFormatter={(label) => `Size: ${label} bytes`}
           />
-          <Bar dataKey="count" fill={ACCENT} radius={[2, 2, 0, 0]} />
+          <Bar 
+            dataKey="count" 
+            fill={CYAN} 
+            radius={[2, 2, 0, 0]}
+          />
         </BarChart>
       </ResponsiveContainer>
-      <div className="text-[9px] text-muted-foreground text-center mt-1">Packet Size (bytes)</div>
+      <div className="font-tech text-xs text-[var(--text-dim)] text-center mt-2 tracking-wider">
+        BYTES
+      </div>
     </div>
   );
 }

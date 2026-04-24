@@ -171,8 +171,8 @@ uint16_t configGetPingInterval() {
     return runtimeConfig.ping_interval_ms;
 }
 
-uint16_t configGetMaxDuration() {
-    return runtimeConfig.max_duration_sec * 1000;  // Convert to ms
+uint32_t configGetMaxDuration() {
+    return (uint32_t)runtimeConfig.max_duration_sec * 1000;  // Convert to ms
 }
 
 uint16_t configGetMaxPPS() {

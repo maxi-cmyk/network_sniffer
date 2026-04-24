@@ -5,6 +5,7 @@ Processes raw Scapy packets into Packet objects.
 
 from __future__ import annotations
 import logging
+from collections import deque
 from datetime import datetime
 from typing import Dict, Optional, TYPE_CHECKING
 
@@ -27,7 +28,7 @@ class PacketHandler:
     
     def __init__(self, max_decode_bytes: int = 1024, alert_service: "AlertService" = None):
         """Initialize packet handler with decoder."""
-        self._raw_packets = []
+        self._raw_packets = deque(maxlen=10_000)
         self._decoder = DecoderService(max_bytes=max_decode_bytes)
         self._alert_service = alert_service
         # IP traffic stats (bytes per IP)
@@ -43,7 +44,7 @@ class PacketHandler:
     @property
     def raw_packets(self) -> list:
         """Get list of raw packets for PCAP export."""
-        return self._raw_packets
+        return list(self._raw_packets)
     
     def _extract_tcp_flags(self, tcp_layer) -> str:
         """Extract TCP flags as string."""

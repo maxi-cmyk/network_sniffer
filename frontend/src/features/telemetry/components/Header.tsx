@@ -1,8 +1,11 @@
 /**
- * Header Component
- * Contains title, status indicator, and control buttons
+ * Header Component - net-noir
+ * Waveform status, system title, control buttons
  */
 
+"use client";
+
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -13,42 +16,143 @@ interface HeaderProps {
   onDisconnect: () => void;
   onClear: () => void;
   disabled?: boolean;
+  packetsPerSecond?: number;
 }
 
-const ACCENT = "#69f6b8";
+const CYAN = "#00ffcc";
+const AMBER = "#ffaa00";
+const PINK = "#ff3366";
+const DIM = "#2a3a35";
 
-export function Header({ isConnected, isConnecting, connectionError, onConnect, onDisconnect, onClear, disabled }: HeaderProps) {
-  const statusColor = isConnected ? ACCENT : connectionError ? "#ef4444" : isConnecting ? "#f59e0b" : "#525252";
-  const statusText = isConnected ? "Live" : connectionError ? "Error" : isConnecting ? "Connecting..." : "Disconnected";
+export function Header({ 
+  isConnected, 
+  isConnecting, 
+  connectionError, 
+  onConnect, 
+  onDisconnect, 
+  onClear, 
+  disabled,
+  packetsPerSecond = 0 
+}: HeaderProps) {
+  const [typedText, setTypedText] = useState("");
+  const [waveformBars, setWaveformBars] = useState<number[]>(Array(12).fill(10));
+  
+  const statusText = isConnected ? "CAPTURING" : connectionError ? "ERROR" : isConnecting ? "INITIALIZING" : "STANDBY";
+  const statusColor = isConnected ? CYAN : connectionError ? PINK : isConnecting ? AMBER : DIM;
+
+  // Typewriter effect for status
+  useEffect(() => {
+    if (isConnected || connectionError) {
+      setTypedText("");
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i < statusText.length) {
+          setTypedText(statusText.slice(0, i + 1));
+          i++;
+        } else {
+          clearInterval(interval);
+        }
+      }, 40);
+      return () => clearInterval(interval);
+    }
+  }, [statusText, isConnected, connectionError]);
+
+  // Waveform animation when connected
+  useEffect(() => {
+    if (!isConnected) {
+      setWaveformBars(Array(24).fill(10));
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setWaveformBars(prev => {
+        const intensity = Math.min(packetsPerSecond / 50, 1);
+        return prev.map((_, i) => {
+          const base = 10 + Math.random() * 60 * intensity;
+          const variation = Math.sin(Date.now() / 200 + i) * 20;
+          return Math.max(10, Math.min(100, base + variation));
+        });
+      });
+    }, 80);
+
+    return () => clearInterval(interval);
+  }, [isConnected, packetsPerSecond]);
 
   return (
-    <div className="flex items-center justify-between pb-4 border-b border-white/5">
-      <div>
-        <h1 className="text-xl font-bold text-white tracking-widest uppercase">Network Sniffer</h1>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-technical text-[9px] text-primary/60">Intercept Active</span>
+    <header className="flex items-center justify-between pb-4 border-b border-[var(--border)] crt-vignette">
+      {/* Left: System Title */}
+      <div className="flex flex-col gap-1">
+        <h1 className="font-display text-2xl text-phosphor tracking-wider animate-flicker">
+          NET-NOIR
+        </h1>
+        <div className="flex items-center gap-3">
+          <span className="font-tech text-sm" style={{ color: statusColor }}>
+            [{typedText}<span className="cursor-blink">{" "}</span>]
+          </span>
         </div>
-      </div>
-      
-      {/* Status & Controls */}
-      <div className="flex items-center gap-3 bg-white/5 px-3 py-1.5 rounded-sm ring-1 ring-white/10">
-        <div className="relative flex items-center justify-center w-3 h-3">
-          <div className={cn("absolute w-full h-full rounded-full transition-all duration-500", isConnected ? "bg-primary animate-ping opacity-20" : isConnecting ? "bg-amber-500 animate-pulse" : "bg-white/20")} />
-          <div className="relative w-1.5 h-1.5 rounded-full" style={{ backgroundColor: statusColor }} />
-        </div>
-        <span className="text-technical text-[10px] text-muted-foreground mr-1">{statusText}</span>
       </div>
 
+      {/* Center: Waveform Visualizer */}
+      <div className="flex items-center gap-4 bg-[var(--surface)] px-5 py-3 rounded-md border border-[var(--border)]">
+        <div className="flex items-center gap-1 h-10">
+          {waveformBars.map((height, i) => (
+            <div
+              key={i}
+              className="w-1 rounded-full transition-all duration-50"
+              style={{
+                height: `${height}%`,
+                backgroundColor: isConnected ? CYAN : DIM,
+                boxShadow: isConnected ? `0 0 4px ${CYAN}` : 'none',
+                opacity: isConnected ? 0.7 + (height / 200) : 0.3,
+              }}
+            />
+          ))}
+        </div>
+        <div className="flex flex-col items-center">
+          <span 
+            className="font-tech text-lg font-bold"
+            style={{ color: isConnected ? CYAN : DIM }}
+          >
+            {packetsPerSecond}
+          </span>
+          <span className="font-tech text-xs text-[var(--text-muted)]">
+            PKT/S
+          </span>
+        </div>
+      </div>
+
+      {/* Right: Control Buttons */}
       <div className="flex items-center gap-2">
         {isConnected ? (
-          <button onClick={onDisconnect} className="px-4 h-12 rounded-sm text-[10px] text-technical font-medium bg-white/5 text-white hover:bg-white/10 border border-white/10">Stop</button>
+          <button 
+            onClick={onDisconnect} 
+            className={cn(
+              "btn-cyber h-12",
+              "hover:border-[var(--tertiary)] hover:text-[var(--tertiary)]",
+              "hover:shadow-[0_0_15px_var(--tertiary-glow)]"
+            )}
+          >
+            [STOP]
+          </button>
         ) : (
-          <button onClick={onConnect} disabled={disabled} className={cn("px-4 h-12 rounded-sm text-[10px] font-medium transition-all duration-300 shadow-[0_0_15px_rgba(105,246,184,0.2)]", disabled ? "opacity-30 bg-white/10 text-muted-foreground" : "bg-primary text-primary-foreground hover:brightness-110")}>
-            {isConnecting ? "Connecting..." : "Start"}
+          <button 
+            onClick={onConnect} 
+            disabled={disabled}
+            className={cn(
+              "btn-cyber btn-primary h-12",
+              disabled && "opacity-30 cursor-not-allowed"
+            )}
+          >
+            {isConnecting ? "[INIT...]" : "[START]"}
           </button>
         )}
-        <button onClick={onClear} className="px-4 h-12 rounded-sm text-[10px] text-technical font-medium bg-white/5 text-white hover:bg-white/10 border border-white/10">Clear</button>
+        <button 
+          onClick={onClear} 
+          className="btn-cyber h-12 hover:border-[var(--secondary)] hover:text-[var(--secondary)]"
+        >
+          [CLR]
+        </button>
       </div>
-    </div>
+    </header>
   );
 }

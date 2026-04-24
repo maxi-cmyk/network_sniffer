@@ -8,6 +8,8 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
+const CYAN = "#00ffcc";
+
 interface SimulationPanelProps {
   API_URL: string;
 }
@@ -119,12 +121,12 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
   const isDisabled = running || (!portScan && !synFlood && !highVolume && !packetRate);
 
   return (
-    <div className="surface-glass rounded-sm ring-1 ring-white/5 p-4 space-y-4">
-      <div className="text-technical text-[10px] mb-4">ATTACK SIMULATION</div>
+    <div className="surface-cyber rounded-md p-4 space-y-4">
+      <div className="font-tech text-sm tracking-wider text-phosphor border-b border-[var(--border)] pb-3 mb-4">ATTACK_SIMULATION</div>
 
       {/* Target IP */}
       <div className="flex items-center gap-4">
-        <label className="text-[10px] text-muted-foreground">TARGET_IP:</label>
+        <label className="font-tech text-sm text-[var(--text-muted)]">TARGET_IP:</label>
         <input
           type="text"
           value={targetIp}
@@ -136,16 +138,16 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
 
       {/* Intensity Slider */}
       <div className="flex items-center gap-4">
-        <label className="text-[10px] text-muted-foreground">INTENSITY:</label>
+        <label className="font-tech text-sm text-[var(--text-muted)]">INTENSITY:</label>
         <input
           type="range"
           min="1"
           max="10"
           value={intensity}
           onChange={(e) => setIntensity(parseInt(e.target.value))}
-          className="flex-1 h-2 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+          className="flex-1 h-2 bg-[var(--surface-elevated)] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--primary)]"
         />
-        <span className="text-[10px] text-primary font-mono w-6">{intensity}</span>
+        <span className="font-tech text-sm" style={{ color: CYAN }}>{intensity}</span>
       </div>
 
       {/* Attack Type Toggles */}
@@ -178,7 +180,7 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
           "flex items-center gap-3 p-3 rounded-sm cursor-pointer border transition-colors",
           networkMode
             ? "border-primary bg-primary/10"
-            : "border-white/10 hover:bg-white/5"
+            : "border-[var(--border)] hover:bg-[var(--surface-elevated)]"
         )}
       >
         <input
@@ -197,9 +199,9 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
             <span className="text-[8px] text-black block text-center">✓</span>
           )}
         </span>
-        <span className="text-[10px] text-white">Network Mode (Real Packets)</span>
+        <span className="font-tech text-sm text-[var(--text-foreground)]">Network Mode (Real Packets)</span>
         {networkMode && (
-          <span className="text-[9px] text-muted-foreground ml-auto">via Scapy</span>
+          <span className="font-tech text-xs text-[var(--text-dim)] ml-auto">via Scapy</span>
         )}
       </label>
 
@@ -208,9 +210,9 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
         onClick={runSimulation}
         disabled={isDisabled}
         className={cn(
-          "w-full py-3 rounded-sm text-[10px] font-medium transition-all",
+          "w-full py-3 rounded-sm font-tech text-sm tracking-wider transition-all",
           isDisabled
-            ? "bg-white/10 text-muted-foreground cursor-not-allowed"
+            ? "bg-[var(--surface-elevated)] text-[var(--text-muted)] cursor-not-allowed"
             : "bg-primary text-primary-foreground hover:brightness-110"
         )}
       >
@@ -220,9 +222,9 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
       {/* Output */}
       {logs.length > 0 && (
         <div className="bg-black/40 rounded-sm p-3 max-h-32 overflow-auto">
-          <div className="text-[10px] text-muted-foreground mb-2">OUTPUT:</div>
+          <div className="font-tech text-sm text-[var(--text-dim)] mb-2">OUTPUT:</div>
           {logs.map((log, i) => (
-            <div key={i} className="text-[10px] font-mono text-primary">
+            <div key={i} className="font-tech text-sm" style={{ color: CYAN }}>
               {log}
             </div>
           ))}
@@ -233,10 +235,10 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
       {history.length > 0 && (
         <div className="border-t border-white/10 pt-4">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-[10px] text-muted-foreground">HISTORY</div>
+            <div className="font-tech text-sm text-[var(--text-dim)]">HISTORY</div>
             <button
               onClick={clearHistory}
-              className="text-[9px] text-muted-foreground hover:text-primary"
+              className="font-tech text-xs hover:text-[var(--primary)]"
             >
               Clear History
             </button>
@@ -245,7 +247,7 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
             {history.map((entry, i) => (
               <div
                 key={entry.id}
-                className="text-[10px] text-muted-foreground font-mono"
+                className="font-tech text-sm text-[var(--text-dim)]"
               >
                 #{i + 1} - {entry.attacks.join(", ")} - {entry.alertCount} alerts -{" "}
                 {entry.timestamp}
@@ -273,7 +275,7 @@ function Toggle({
         "flex items-center gap-2 p-3 rounded-sm cursor-pointer border transition-colors",
         checked
           ? "border-primary bg-primary/10"
-          : "border-white/10 hover:bg-white/5"
+          : "border-[var(--border)] hover:bg-[var(--surface-elevated)]"
       )}
     >
       <input
@@ -292,7 +294,7 @@ function Toggle({
           <span className="text-[8px] text-black block text-center">✓</span>
         )}
       </span>
-      <span className="text-[10px] text-white">{label}</span>
+      <span className="font-tech text-sm text-[var(--text-foreground)]">{label}</span>
     </label>
   );
 }
