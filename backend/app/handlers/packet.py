@@ -134,6 +134,9 @@ class PacketHandler:
             # Track ARP table (IP -> MAC)
             mac = pkt[ARP].hwsrc
             if src and mac:
+                expected_mac = self._arp_table.get(src)
+                if expected_mac and expected_mac.lower() != mac.lower() and self._alert_service:
+                    self._alert_service.check_arp_conflict(src, expected_mac, mac)
                 self._arp_table[src] = mac
                 self._cleanup_arp()
         

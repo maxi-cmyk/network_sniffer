@@ -94,7 +94,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Run the server (sudo required on macOS/Linux for raw packet capture)
-sudo uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+sudo ./venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 The backend will be running at `http://localhost:8000`
@@ -223,7 +223,7 @@ tshark -r capture.pcap -T json > capture.json
 On macOS and Linux, you'll need to run the backend with elevated privileges to capture network packets:
 
 ```bash
-sudo uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+sudo ./venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Alternatively, you can grant raw socket access to your user (OS-specific).

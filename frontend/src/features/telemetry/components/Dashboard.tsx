@@ -154,7 +154,7 @@ export default function Dashboard() {
       case "simulation":
         return <SimulationPanel API_URL={API_URL} />;
       case "arp":
-        return <ARPPanel arpTable={stats.arpTable} />;
+        return <ARPPanel arpTable={stats.arpTable} alerts={stats.alerts} />;
       case "settings":
         return <SettingsPanel API_URL={API_URL} />;
       default:

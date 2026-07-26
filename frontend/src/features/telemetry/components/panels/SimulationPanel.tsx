@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { InfoHint } from "../InfoHint";
 
 const CYAN = "#00ffcc";
 
@@ -22,6 +23,7 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
   const [synFlood, setSynFlood] = useState(false);
   const [highVolume, setHighVolume] = useState(false);
   const [packetRate, setPacketRate] = useState(false);
+  const [arpConflict, setArpConflict] = useState(false);
   const [intensity, setIntensity] = useState(5);
   const [networkMode, setNetworkMode] = useState(false);
   const [history, setHistory] = useState<{
@@ -39,16 +41,18 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
   });
 
   const runSimulation = async () => {
-    if (!portScan && !synFlood && !highVolume && !packetRate) return;
+    if (!portScan && !synFlood && !highVolume && !packetRate && !arpConflict) return;
     setRunning(true);
     setLogs([]);
 
-    const endpoint = networkMode ? "/alerts/sim/real" : "/alerts/simulate";
+    // ARP conflict simulation is always local-only, even when Network Mode is enabled.
+    const endpoint = networkMode && !arpConflict ? "/alerts/sim/real" : "/alerts/simulate";
     const selectedAttacks: string[] = [];
     if (portScan) selectedAttacks.push("port_scan");
     if (synFlood) selectedAttacks.push("syn_flood");
     if (highVolume) selectedAttacks.push("high_volume");
     if (packetRate) selectedAttacks.push("packet_rate");
+    if (arpConflict) selectedAttacks.push("arp_conflict (local only)");
 
     try {
       const res = await fetch(`${API_URL}${endpoint}`, {
@@ -59,6 +63,7 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
           syn_flood: synFlood,
           high_volume: highVolume,
           packet_rate: packetRate,
+          arp_conflict: arpConflict,
           target_ip: targetIp,
           intensity: intensity,
         }),
@@ -80,6 +85,9 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
             newLogs.push(`✓ High Volume: ${r.bytes || r.payload_size} bytes`);
           } else if (r.type === "packet_rate") {
             newLogs.push(`✓ Packet Rate: ${r.iterations} iterations`);
+          } else if (r.type === "arp_conflict") {
+            newLogs.push(`✓ Safe ARP conflict: ${r.ip} changed from ${r.expected_mac} to ${r.observed_mac}`);
+            newLogs.push("  No packets were sent to a network interface.");
           }
         } else {
           newLogs.push(`✗ ${r.type}: skipped`);
@@ -118,11 +126,16 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
     }
   };
 
-  const isDisabled = running || (!portScan && !synFlood && !highVolume && !packetRate);
+  const isDisabled = running || (!portScan && !synFlood && !highVolume && !packetRate && !arpConflict);
 
   return (
     <div className="surface-cyber rounded-md p-4 space-y-4">
-      <div className="font-tech text-sm tracking-wider text-phosphor border-b border-[var(--border)] pb-3 mb-4">ATTACK_SIMULATION</div>
+      <div className="font-tech text-sm tracking-wider text-phosphor border-b border-[var(--border)] pb-3 mb-4">ATTACK_SIMULATION<InfoHint label="What does this panel do?">Use this panel to exercise detection rules. The Safe ARP Conflict option uses only in-memory packets inside the app, so it does not transmit or alter anything on your network.</InfoHint></div>
+
+      <div className="rounded-sm border border-[var(--border)] bg-black/20 p-3 text-sm">
+        <div className="font-tech text-phosphor">BASELINE WORKFLOW<InfoHint label="How do I make an ARP baseline?">Capture normal ARP traffic first. Each IP/MAC pair shown as OBSERVED in the ARP table becomes the normal state. A different MAC for the same IP is what produces a conflict alert.</InfoHint></div>
+        <p className="mt-1 text-[var(--text-muted)]">1. Capture normal ARP traffic. 2. Confirm the ARP table shows expected devices as <span className="text-[#00ffcc]">OBSERVED</span>. 3. Run the safe simulation to verify the conflict workflow.</p>
+      </div>
 
       {/* Target IP */}
       <div className="flex items-center gap-4">
@@ -172,6 +185,12 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
           onChange={setPacketRate}
           label="Packet Rate"
         />
+        <Toggle
+          checked={arpConflict}
+          onChange={setArpConflict}
+          label="Safe ARP Conflict"
+          description="Local-only; no network packets"
+        />
       </div>
 
       {/* Network Mode Toggle */}
@@ -200,8 +219,11 @@ export function SimulationPanel({ API_URL }: SimulationPanelProps) {
           )}
         </span>
         <span className="font-tech text-sm text-[var(--text-foreground)]">Network Mode (Real Packets)</span>
-        {networkMode && (
+        {networkMode && !arpConflict && (
           <span className="font-tech text-xs text-[var(--text-dim)] ml-auto">via Scapy</span>
+        )}
+        {arpConflict && (
+          <span className="font-tech text-xs text-[#00ffcc] ml-auto">ARP demo remains local-only</span>
         )}
       </label>
 
@@ -264,10 +286,12 @@ function Toggle({
   checked,
   onChange,
   label,
+  description,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
+  description?: string;
 }) {
   return (
     <label
@@ -294,7 +318,10 @@ function Toggle({
           <span className="text-[8px] text-black block text-center">✓</span>
         )}
       </span>
-      <span className="font-tech text-sm text-[var(--text-foreground)]">{label}</span>
+      <span>
+        <span className="font-tech text-sm text-[var(--text-foreground)]">{label}</span>
+        {description && <span className="block font-tech text-xs text-[var(--text-dim)]">{description}</span>}
+      </span>
     </label>
   );
 }

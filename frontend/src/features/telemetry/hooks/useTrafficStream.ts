@@ -64,6 +64,7 @@ export interface AlertData {
   description: string;
   timestamp: string;
   count: number;
+  alert_type: string;
 }
 
 /**
@@ -376,13 +377,15 @@ export function useTrafficStream({
     const pollAlerts = async () => {
       if (!polling) return;
       try {
-        const res = await fetch(`${API_URL}/alerts`);
+        const res = await fetch(`${API_URL}/alerts/full`);
         const data = await res.json();
         if (data.alerts) {
           setStats(prev => ({
             ...prev,
             alerts: data.alerts,
-            alertCount: data.count,
+            alertCount: data.alertCount,
+            topTalkers: data.topTalkers || [],
+            arpTable: data.arpTable || [],
           }));
         }
       } catch (e) {

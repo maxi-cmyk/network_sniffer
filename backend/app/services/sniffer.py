@@ -47,6 +47,40 @@ class SnifferService:
     def get_arp_table(self) -> list:
         """Get ARP table."""
         return self._packet_handler.get_arp_table()
+
+    def simulate_arp_conflict(self, ip: str = "192.168.56.1") -> dict:
+        """Create two in-memory ARP claims for a safe dashboard demonstration.
+
+        The packets are processed locally and are never sent to a network interface.
+        """
+        from scapy.all import ARP
+
+        baseline_mac = "02:00:00:00:00:01"
+        observed_mac = "02:00:00:00:00:02"
+        target_ip = "192.168.56.10"
+        packets = [
+            ARP(psrc=ip, pdst=target_ip, hwsrc=baseline_mac),
+            ARP(psrc=ip, pdst=target_ip, hwsrc=observed_mac),
+        ]
+
+        processed_packets = []
+        for raw_packet in packets:
+            packet = self._packet_handler.process(raw_packet)
+            if packet:
+                processed_packets.append(packet)
+
+        with self._buffer_lock:
+            self._packet_buffer.extend(processed_packets)
+
+        return {
+            "type": "arp_conflict",
+            "triggered": bool(self._alert_service and self._alert_service.get_alerts()),
+            "ip": ip,
+            "expected_mac": baseline_mac,
+            "observed_mac": observed_mac,
+            "mode": "local_simulation",
+            "network_traffic_sent": False,
+        }
     
     def set_loop(self, loop: asyncio.AbstractEventLoop):
         """Store reference to the asyncio event loop."""

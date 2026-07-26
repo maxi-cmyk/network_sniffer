@@ -76,6 +76,7 @@ async def simulate_attacks(request: dict):
         syn_flood: bool - Trigger SYN flood detection
         high_volume: bool - Trigger high volume detection
         packet_rate: bool - Trigger packet rate detection
+        arp_conflict: bool - Create a local-only ARP conflict demonstration
         target_ip: str - Target IP for attacks
         intensity: int - Attack intensity (1-10)
     """
@@ -83,6 +84,7 @@ async def simulate_attacks(request: dict):
     syn_flood = request.get("syn_flood", False)
     high_volume = request.get("high_volume", False)
     packet_rate = request.get("packet_rate", False)
+    arp_conflict = request.get("arp_conflict", False)
     target_ip = request.get("target_ip", "127.0.0.1")
     intensity = max(1, min(10, int(request.get("intensity", 5))))
 
@@ -129,6 +131,9 @@ async def simulate_attacks(request: dict):
             "iterations": intensity,
             "target": target_ip
         })
+
+    if arp_conflict:
+        results.append(sniffer_service.simulate_arp_conflict(target_ip))
     
     return {
         "results": results,

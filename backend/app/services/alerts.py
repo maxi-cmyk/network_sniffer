@@ -535,6 +535,37 @@ class AlertService:
         self._add_alert(alert)
         logger.info(f"ALERT: Protocol anomaly from {ip}: {description}")
         return alert
+
+    def check_arp_conflict(self, ip: str, expected_mac: str, observed_mac: str) -> Optional[Alert]:
+        """Alert when an IP address is claimed by a different MAC address."""
+        if expected_mac.lower() == observed_mac.lower():
+            return None
+
+        if self._is_on_cooldown(ip, "arp_conflict"):
+            return None
+
+        now = datetime.now()
+        alert = Alert(
+            id=f"arp_conflict_{ip}_{now.timestamp()}",
+            severity="critical",
+            source_ip=ip,
+            ip_category=self._get_ip_category(ip),
+            description=(
+                "ARP mapping conflict: "
+                f"Expected MAC {expected_mac}; observed MAC {observed_mac}"
+            ),
+            timestamp=now,
+            count=1,
+            alert_type="arp_conflict",
+        )
+        self._add_alert(alert)
+        logger.critical(
+            "ALERT: ARP mapping conflict for %s: expected %s, observed %s",
+            ip,
+            expected_mac,
+            observed_mac,
+        )
+        return alert
     
     # -------------------------------------------------------------------------
     # PUBLIC API
